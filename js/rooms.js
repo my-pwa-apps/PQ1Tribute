@@ -36,19 +36,19 @@ function registerAllRooms(engine) {
 
     G.registerRoom('lockerRoom', {
         name: 'Police Station — Locker Room',
-        walkBounds: { x1: 20, y1: 110, x2: 300, y2: 185 },
+        walkBounds: { x1: 20, y1: 108, x2: 300, y2: 185 },
         safeSpawn: [160, 150],
 
         hotspots: [
-            { id: 'locker', x: 30, y: 30, w: 50, h: 80, name: 'Your locker',
+            { id: 'locker', x: 50, y: 18, w: 38, h: 70, name: 'Your locker',
               description: 'Your personal locker, number 7. It has your name on it: A. MERCER.' },
-            { id: 'otherLockers', x: 90, y: 30, w: 120, h: 80, name: 'Other lockers',
+            { id: 'otherLockers', x: 94, y: 18, w: 176, h: 70, name: 'Other lockers',
               description: 'Rows of gray metal lockers. Some have photos and stickers on them.' },
-            { id: 'bench', x: 100, y: 115, w: 80, h: 15, name: 'Bench',
+            { id: 'bench', x: 95, y: 115, w: 100, h: 15, name: 'Bench',
               description: 'A wooden bench, worn smooth from years of use.' },
-            { id: 'shower', x: 260, y: 40, w: 40, h: 70, name: 'Shower area',
+            { id: 'shower', x: 284, y: 15, w: 30, h: 75, name: 'Shower area',
               description: 'The shower area. Tiled walls with a constant drip.' },
-            { id: 'mirror', x: 220, y: 45, w: 20, h: 30, name: 'Mirror',
+            { id: 'mirror', x: 235, y: 22, w: 24, h: 34, name: 'Mirror',
               description: 'You see yourself: Detective Alex Mercer, 15 years on the force. Looking tired but determined.' },
         ],
 
@@ -70,172 +70,185 @@ function registerAllRooms(engine) {
 
         draw(ctx, state, frame) {
             const rng = new SeededRandom(42);
-            // Floor
-            Draw.rect(ctx, 0, 105, 320, 95, C.FLOOR_TILE);
-            // Floor tile pattern
-            for (let tx = 0; tx < 320; tx += 16) {
-                for (let ty = 105; ty < 200; ty += 16) {
-                    Draw.line(ctx, tx, ty, tx + 16, ty, C.LGRAY);
-                    Draw.line(ctx, tx, ty, tx, ty + 16, C.LGRAY);
-                }
+
+            // ── AGI-style pseudo-3D locker room ──
+            // Viewed from the doorway — back wall with lockers, side walls converging
+            const vpX = 160, bwL = 40, bwR = 280, bwTop = 10, bwBot = 105;
+            const floorY = 105;
+
+            // ── Back wall ──
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, bwBot - bwTop, C.WALL_BEIGE);
+            Draw.rect(ctx, bwL, bwBot - 4, bwR - bwL, 4, C.BROWN); // baseboard
+
+            // ── Left wall (trapezoid) ──
+            const lwColor = VGA.nearest(190, 175, 150);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, lwColor);
+            }
+            // Left baseboard
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, C.BROWN);
             }
 
-            // Walls
-            Draw.rect(ctx, 0, 0, 320, 105, C.WALL_BEIGE);
-            // Baseboard
-            Draw.rect(ctx, 0, 100, 320, 5, C.BROWN);
+            // ── Right wall (trapezoid) ──
+            const rwColor = VGA.nearest(180, 165, 140);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, rwColor);
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, C.BROWN);
+            }
 
-            // Lockers - left side
+            // ── Ceiling ──
+            Draw.rect(ctx, 0, 0, 320, bwTop, C.WALL_BEIGE);
+
+            // ── Floor with perspective tiles ──
+            Draw.rect(ctx, 0, floorY, 320, 200 - floorY, C.FLOOR_TILE);
+            for (let i = 0; i < 8; i++) {
+                const t = i / 8;
+                const y = Math.round(floorY + (200 - floorY) * t);
+                Draw.line(ctx, 0, y, 320, y, C.LGRAY);
+            }
+            for (let ix = -5; ix <= 5; ix++) {
+                Draw.line(ctx, vpX + ix * 10, floorY, vpX + ix * 40, 200, C.LGRAY);
+            }
+
+            // ── Lockers on back wall ──
             for (let i = 0; i < 5; i++) {
-                const lx = 25 + i * 38;
+                const lx = bwL + 10 + i * 44;
                 const isPlayer = (i === 0);
                 const lockerColor = isPlayer ? C.LOCKER_GRAY : C.LOCKER_DARK;
-                Draw.rect(ctx, lx, 25, 32, 78, lockerColor);
-                Draw.rect(ctx, lx + 1, 26, 30, 76, C.LOCKER_GRAY);
+                const lockerW = 38, lockerH = 70;
+                const lockerY = bwTop + 8;
+                Draw.rect(ctx, lx, lockerY, lockerW, lockerH, lockerColor);
+                Draw.rect(ctx, lx + 1, lockerY + 1, lockerW - 2, lockerH - 2, C.LOCKER_GRAY);
 
-                // Show player locker open with uniform inside
                 if (isPlayer && state.flags.lockerOpen) {
-                    // Open locker interior
-                    Draw.rect(ctx, lx + 2, 27, 28, 74, VGA.nearest(20, 20, 25));
-                    // Shelf at top
-                    Draw.rect(ctx, lx + 2, 27, 28, 2, C.METAL_GRAY);
+                    Draw.rect(ctx, lx + 2, lockerY + 2, lockerW - 4, lockerH - 4, VGA.nearest(20, 20, 25));
+                    Draw.rect(ctx, lx + 2, lockerY + 2, lockerW - 4, 2, C.METAL_GRAY); // shelf
 
-                    // Uniform hanging if not yet worn
                     if (!state.flags.wearingUniform) {
-                        // Hanger (wire shape)
-                        Draw.rect(ctx, lx + 12, 30, 6, 1, C.METAL_GRAY); // bar
-                        Draw.pixel(ctx, lx + 15, 29, C.METAL_GRAY);      // hook top
-                        Draw.pixel(ctx, lx + 15, 28, C.METAL_GRAY);
-                        Draw.rect(ctx, lx + 10, 31, 1, 1, C.METAL_GRAY); // shoulder L
-                        Draw.rect(ctx, lx + 19, 31, 1, 1, C.METAL_GRAY); // shoulder R
-
-                        // Uniform shirt on hanger (detailed)
-                        Draw.rect(ctx, lx + 8, 32, 14, 18, C.UNIFORM_BLUE);
-                        // Collar
-                        Draw.rect(ctx, lx + 10, 32, 10, 2, C.UNIFORM_DARK);
-                        Draw.pixel(ctx, lx + 15, 32, C.WHITE); // undershirt at collar
+                        // Hanger
+                        Draw.rect(ctx, lx + 14, lockerY + 5, 8, 1, C.METAL_GRAY);
+                        Draw.pixel(ctx, lx + 18, lockerY + 4, C.METAL_GRAY);
+                        // Uniform shirt
+                        Draw.rect(ctx, lx + 10, lockerY + 7, 18, 22, C.UNIFORM_BLUE);
+                        Draw.rect(ctx, lx + 13, lockerY + 7, 12, 2, C.UNIFORM_DARK); // collar
+                        Draw.pixel(ctx, lx + 19, lockerY + 7, C.WHITE);
                         // Shoulder patches
-                        Draw.pixel(ctx, lx + 8, 34, C.BADGE_GOLD);
-                        Draw.pixel(ctx, lx + 21, 34, C.BADGE_GOLD);
-                        // Button line
+                        Draw.pixel(ctx, lx + 10, lockerY + 10, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 27, lockerY + 10, C.BADGE_GOLD);
+                        // Buttons
                         for (let b = 0; b < 4; b++) {
-                            Draw.pixel(ctx, lx + 15, 35 + b * 3, C.UNIFORM_DARK);
+                            Draw.pixel(ctx, lx + 19, lockerY + 10 + b * 4, C.UNIFORM_DARK);
                         }
-                        // Badge pinned on
-                        Draw.pixel(ctx, lx + 11, 36, C.BADGE_GOLD);
-                        Draw.pixel(ctx, lx + 10, 37, C.BADGE_GOLD);
-                        Draw.pixel(ctx, lx + 12, 37, C.BADGE_GOLD);
-                        // Pocket flaps
-                        Draw.rect(ctx, lx + 10, 40, 4, 1, C.UNIFORM_DARK);
-                        Draw.rect(ctx, lx + 16, 40, 4, 1, C.UNIFORM_DARK);
-                        // Name tag
-                        Draw.rect(ctx, lx + 16, 36, 4, 2, C.WHITE);
-
-                        // Uniform pants folded on shelf below
-                        Draw.rect(ctx, lx + 8, 54, 14, 8, C.UNIFORM_DARK);
-                        Draw.rect(ctx, lx + 15, 54, 1, 8, VGA.nearest(15, 18, 50)); // crease
-
-                        // Duty belt coiled on shelf
-                        Draw.ellipse(ctx, lx + 15, 66, 4, 3, C.BLACK);
-                        Draw.pixel(ctx, lx + 15, 66, C.METAL_GRAY); // buckle glint
-
-                        // Police cap on top shelf
-                        Draw.rect(ctx, lx + 18, 29, 8, 4, C.UNIFORM_DARK);
-                        Draw.rect(ctx, lx + 17, 33, 10, 1, C.UNIFORM_BLUE);
-                        Draw.pixel(ctx, lx + 22, 30, C.BADGE_GOLD); // cap badge
+                        // Badge
+                        Draw.pixel(ctx, lx + 13, lockerY + 12, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 12, lockerY + 13, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 14, lockerY + 13, C.BADGE_GOLD);
+                        // Pants folded
+                        Draw.rect(ctx, lx + 10, lockerY + 34, 18, 10, C.UNIFORM_DARK);
+                        Draw.rect(ctx, lx + 19, lockerY + 34, 1, 10, VGA.nearest(15, 18, 50));
+                        // Duty belt coiled
+                        Draw.ellipse(ctx, lx + 19, lockerY + 50, 5, 4, C.BLACK);
+                        Draw.pixel(ctx, lx + 19, lockerY + 50, C.METAL_GRAY);
+                        // Cap on shelf
+                        Draw.rect(ctx, lx + 24, lockerY + 4, 10, 5, C.UNIFORM_DARK);
+                        Draw.pixel(ctx, lx + 29, lockerY + 5, C.BADGE_GOLD);
                     } else {
-                        // Empty locker with some personal items
-                        Draw.rect(ctx, lx + 8, 68, 12, 4, C.DGRAY); // civilian clothes folded
-                        Draw.rect(ctx, lx + 18, 44, 6, 8, VGA.nearest(100, 60, 30)); // coffee thermos
+                        Draw.rect(ctx, lx + 10, lockerY + 50, 16, 6, C.DGRAY);
+                        Draw.rect(ctx, lx + 22, lockerY + 25, 8, 10, VGA.nearest(100, 60, 30));
                     }
-
-                    // Hook on inside of door
-                    Draw.pixel(ctx, lx + 27, 40, C.METAL_GRAY);
+                    Draw.pixel(ctx, lx + lockerW - 5, lockerY + 20, C.METAL_GRAY);
                 } else {
-                    // Vent slits (closed locker)
+                    // Vent slits
                     for (let s = 0; s < 4; s++) {
-                        Draw.rect(ctx, lx + 8, 32 + s * 5, 16, 1, C.DGRAY);
+                        Draw.rect(ctx, lx + 8, lockerY + 8 + s * 6, 20, 1, C.DGRAY);
                     }
                 }
 
                 // Handle
-                Draw.rect(ctx, lx + 24, 60, 3, 6, C.METAL_GRAY);
+                Draw.rect(ctx, lx + lockerW - 8, lockerY + 32, 3, 8, C.METAL_GRAY);
                 // Number
-                Draw.text(ctx, `${i + 7}`, lx + 12, 88, C.BLACK, 6);
+                Draw.text(ctx, `${i + 7}`, lx + 14, lockerY + lockerH - 6, C.BLACK, 6);
                 if (isPlayer) {
-                    Draw.text(ctx, 'MERCER', lx + 4, 95, C.BLACK, 5);
+                    Draw.text(ctx, 'MERCER', lx + 4, lockerY + lockerH - 1, C.BLACK, 5);
                 }
             }
 
-            // Bench
-            Draw.rect(ctx, 95, 115, 90, 6, C.DESK_BROWN);
-            Draw.rect(ctx, 100, 121, 4, 10, C.DESK_BROWN);
-            Draw.rect(ctx, 176, 121, 4, 10, C.DESK_BROWN);
+            // ── Bench (in the floor area, perspective) ──
+            Draw.rect(ctx, 95, 115, 100, 5, C.DESK_BROWN);
+            Draw.rect(ctx, 100, 120, 4, 10, C.DESK_BROWN);
+            Draw.rect(ctx, 186, 120, 4, 10, C.DESK_BROWN);
 
-            // Shower area (right side)
-            Draw.rect(ctx, 255, 25, 55, 80, C.WINDOW_CYAN);
-            Draw.rect(ctx, 256, 26, 53, 78, C.WHITE);
+            // ── Shower area on right wall (perspective trapezoid) ──
+            const shX = bwR + 4, shY = bwTop + 5;
+            const shW = 30, shH = bwBot - bwTop - 15;
+            Draw.rect(ctx, shX, shY, shW, shH, C.WHITE);
             // Tiles
-            for (let tx = 256; tx < 309; tx += 8) {
-                for (let ty = 26; ty < 104; ty += 8) {
-                    Draw.rect(ctx, tx, ty, 7, 7, C.WHITE);
-                    Draw.line(ctx, tx, ty, tx + 7, ty, C.LGRAY);
-                }
+            for (let ty = shY; ty < shY + shH; ty += 6) {
+                Draw.line(ctx, shX, ty, shX + shW, ty, C.LGRAY);
+            }
+            for (let tx = shX; tx < shX + shW; tx += 6) {
+                Draw.line(ctx, tx, shY, tx, shY + shH, C.LGRAY);
             }
             // Shower head
-            Draw.rect(ctx, 278, 28, 8, 3, C.METAL_GRAY);
-            Draw.rect(ctx, 281, 31, 2, 4, C.METAL_GRAY);
+            Draw.rect(ctx, shX + 12, shY + 2, 6, 2, C.METAL_GRAY);
+            Draw.rect(ctx, shX + 14, shY + 4, 2, 3, C.METAL_GRAY);
 
-            // Mirror
-            Draw.rect(ctx, 218, 42, 24, 34, C.DGRAY);
-            Draw.rect(ctx, 220, 44, 20, 30, C.WINDOW_CYAN);
-            // Mirror reflection highlight
-            Draw.line(ctx, 221, 45, 221, 65, C.WHITE);
-
-            // Wall clock
-            Draw.ellipse(ctx, 205, 25, 8, 8, C.WHITE);
-            Draw.ellipse(ctx, 205, 25, 8, 8, C.DGRAY, false);
-            // Clock hands
-            Draw.line(ctx, 205, 25, 205, 20, C.BLACK); // minute
-            Draw.line(ctx, 205, 25, 209, 25, C.BLACK); // hour
-            Draw.pixel(ctx, 205, 25, C.RED); // center
-
-            // Ceiling vent
-            Draw.rect(ctx, 160, 3, 20, 8, C.METAL_GRAY);
-            for (let v = 0; v < 3; v++) {
-                Draw.rect(ctx, 162, 4 + v * 3, 16, 1, C.DGRAY);
-            }
-
-            // Fluorescent lights
-            Draw.rect(ctx, 60, 5, 80, 3, C.WHITE);
-            Draw.rect(ctx, 200, 5, 60, 3, C.WHITE);
-            // Light glow
-            Draw.dither(ctx, 60, 8, 80, 2, C.WHITE, C.WALL_BEIGE);
-            Draw.dither(ctx, 200, 8, 60, 2, C.WHITE, C.WALL_BEIGE);
-
-            // Shower water drip (animated)
+            // Shower drip (animated)
             if (frame % 45 < 15) {
-                const dripY = 35 + (frame % 45);
-                Draw.pixel(ctx, 282, dripY, C.WINDOW_CYAN);
+                const dripY = shY + 7 + (frame % 45);
+                Draw.pixel(ctx, shX + 15, dripY, C.WINDOW_CYAN);
             }
             if (frame % 45 > 30) {
-                // Splash
-                Draw.pixel(ctx, 281, 100, C.WINDOW_CYAN);
-                Draw.pixel(ctx, 283, 99, C.WINDOW_CYAN);
+                Draw.pixel(ctx, shX + 14, shY + shH - 2, C.WINDOW_CYAN);
+                Draw.pixel(ctx, shX + 16, shY + shH - 3, C.WINDOW_CYAN);
             }
 
-            // Wet spot on floor near shower
-            Draw.dither(ctx, 268, 108, 20, 3, C.WINDOW_CYAN, C.FLOOR_TILE);
+            // ── Mirror on back wall (right side) ──
+            Draw.rect(ctx, bwR - 45, bwTop + 12, 24, 34, C.DGRAY);
+            Draw.rect(ctx, bwR - 43, bwTop + 14, 20, 30, C.WINDOW_CYAN);
+            Draw.line(ctx, bwR - 42, bwTop + 15, bwR - 42, bwTop + 38, C.WHITE);
 
-            // Towel draped on bench
+            // ── Wall clock ──
+            Draw.ellipse(ctx, bwR - 55, bwTop + 8, 7, 7, C.WHITE);
+            Draw.ellipse(ctx, bwR - 55, bwTop + 8, 7, 7, C.DGRAY, false);
+            Draw.line(ctx, bwR - 55, bwTop + 8, bwR - 55, bwTop + 3, C.BLACK);
+            Draw.line(ctx, bwR - 55, bwTop + 8, bwR - 51, bwTop + 8, C.BLACK);
+            Draw.pixel(ctx, bwR - 55, bwTop + 8, C.RED);
+
+            // ── Fluorescent lights on ceiling ──
+            Draw.rect(ctx, 60, 3, 80, 3, C.WHITE);
+            Draw.rect(ctx, 200, 3, 60, 3, C.WHITE);
+            Draw.dither(ctx, 60, 6, 80, 2, C.WHITE, C.WALL_BEIGE);
+            Draw.dither(ctx, 200, 6, 60, 2, C.WHITE, C.WALL_BEIGE);
+
+            // ── Ceiling vent ──
+            Draw.rect(ctx, vpX - 10, 2, 20, 6, C.METAL_GRAY);
+            for (let v = 0; v < 3; v++) {
+                Draw.rect(ctx, vpX - 8, 3 + v * 2, 16, 1, C.DGRAY);
+            }
+
+            // ── Wet spot on floor near shower ──
+            Draw.dither(ctx, 275, 108, 20, 3, C.WINDOW_CYAN, C.FLOOR_TILE);
+
+            // ── Towel on bench ──
             Draw.rect(ctx, 140, 113, 12, 3, C.WHITE);
-            Draw.rect(ctx, 140, 116, 5, 6, C.WHITE); // hanging part
+            Draw.rect(ctx, 140, 116, 5, 6, C.WHITE);
 
-            // Exit door (bottom center)
-            Draw.rect(ctx, 135, 90, 50, 15, C.DOOR_BROWN);
-            Draw.text(ctx, 'EXIT', 148, 100, C.WHITE, 6);
-            // Arrow on floor
-            Draw.text(ctx, 'v', 158, 192, C.YELLOW, 7);
+            // ── Exit door (south, at bottom of back wall) ──
+            Draw.rect(ctx, vpX - 25, bwBot - 15, 50, 15, C.DOOR_BROWN);
+            Draw.text(ctx, 'HALL', vpX - 12, bwBot - 5, C.WHITE, 5);
+            Draw.text(ctx, 'v', vpX - 2, 192, C.YELLOW, 7);
         },
 
         onInteract(g, verb, id, hs) {
@@ -433,110 +446,223 @@ function registerAllRooms(engine) {
         safeSpawn: [160, 150],
 
         hotspots: [
-            { id: 'bulletinBoard', x: 40, y: 40, w: 50, h: 40, name: 'Bulletin board',
+            { id: 'bulletinBoard', x: 5, y: 22, w: 40, h: 45, name: 'Bulletin board',
               description: 'A cork bulletin board covered with notices, wanted posters, and a faded "Employee of the Month" photo.' },
-            { id: 'waterCooler', x: 250, y: 70, w: 20, h: 35, name: 'Water cooler',
+            { id: 'waterCooler', x: 236, y: 64, w: 18, h: 25, name: 'Water cooler',
               description: 'The break area water cooler. Someone left a half-eaten donut beside it.' },
-            { id: 'corkBoard2', x: 105, y: 42, w: 40, h: 35, name: 'Case board',
+            { id: 'corkBoard2', x: 66, y: 25, w: 38, h: 30, name: 'Case board',
               description: 'A board with photos and red string connecting them. You see "CHEN KIDNAPPING" written at the top.' },
-            { id: 'coffeeMug', x: 255, y: 60, w: 12, h: 10, name: 'Coffee',
+            { id: 'coffeeMug', x: 246, y: 82, w: 8, h: 6, name: 'Coffee',
               description: 'Someone left a mug of coffee here. Still warm.' },
         ],
 
         exits: [
-            // North: Briefing room
-            { x1: 120, y1: 98, x2: 200, y2: 105, target: 'briefingRoom', enterX: 160, enterY: 175, enterDir: 3 },
+            // North: Briefing room (through the back wall door)
+            { x1: 120, y1: 88, x2: 200, y2: 95, target: 'briefingRoom', enterX: 160, enterY: 175, enterDir: 3 },
             // South: Locker room
             { x1: 140, y1: 185, x2: 180, y2: 195, target: 'lockerRoom', enterX: 160, enterY: 140, enterDir: 0 },
-            // West: Parking lot
-            { x1: 0, y1: 110, x2: 15, y2: 175, target: 'parkingLot', enterX: 290, enterY: 150, enterDir: 1 },
-            // East: Captain's office
-            { x1: 300, y1: 110, x2: 320, y2: 170, target: 'captainOffice', enterX: 40, enterY: 150, enterDir: 2 },
+            // West: Parking lot (left wall exit)
+            { x1: 0, y1: 40, x2: 15, y2: 90, target: 'parkingLot', enterX: 290, enterY: 150, enterDir: 1 },
+            // East: Captain's office (right wall door)
+            { x1: 260, y1: 25, x2: 295, y2: 90, target: 'captainOffice', enterX: 40, enterY: 150, enterDir: 2 },
         ],
 
         draw(ctx, state, frame) {
             const rng = new SeededRandom(100);
 
-            // Floor
-            Draw.rect(ctx, 0, 95, 320, 105, C.FLOOR_TILE);
-            for (let tx = 0; tx < 320; tx += 20) {
-                for (let ty = 95; ty < 200; ty += 20) {
-                    Draw.rect(ctx, tx, ty, 19, 19, C.FLOOR_TILE);
-                    Draw.line(ctx, tx, ty, tx + 19, ty, C.LGRAY);
-                    Draw.line(ctx, tx, ty, tx, ty + 19, C.LGRAY);
-                }
+            // ── AGI-style pseudo-3D hallway ──
+            // Vanishing point at center of back wall
+            const vpX = 160, vpY = 42;
+            // Back wall boundaries (where perspective lines converge to)
+            const bwL = 60, bwR = 260, bwTop = 15, bwBot = 90;
+            // Screen edges for floor/ceiling
+            const floorY = 90;
+
+            // ── Ceiling ──
+            Draw.rect(ctx, 0, 0, 320, floorY, C.WALL_GREEN);
+            // Ceiling tiles with perspective
+            const ceilColor = VGA.nearest(90, 115, 90);
+            for (let ty = 0; ty < bwTop; ty += 6) {
+                const t = ty / bwTop;
+                const lx = Math.round(t * bwL);
+                const rx = Math.round(320 - t * (320 - bwR));
+                Draw.line(ctx, lx, ty, rx, ty, ceilColor);
             }
 
-            // Walls
-            Draw.rect(ctx, 0, 0, 320, 95, C.WALL_GREEN);
-            // Baseboard
-            Draw.rect(ctx, 0, 90, 320, 5, C.BROWN);
+            // ── Back wall (the far end of the hallway) ──
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, bwBot - bwTop, C.WALL_GREEN);
+            // Baseboard on back wall
+            Draw.rect(ctx, bwL, bwBot - 4, bwR - bwL, 4, C.BROWN);
+            // Crown moulding on back wall
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, 2, VGA.nearest(120, 145, 120));
 
-            // Bulletin board (left wall)
-            Draw.rect(ctx, 35, 35, 60, 48, C.DESK_BROWN);
-            Draw.rect(ctx, 37, 37, 56, 44, C.BROWN);
-            // Pinned notes
+            // ── Left wall (trapezoid, converging to vanishing point) ──
+            const lwDark = VGA.nearest(65, 90, 65);
+            // Fill left wall trapezoid
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, lwDark);
+            }
+            // Left wall baseboard (angled)
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, C.BROWN);
+            }
+
+            // ── Right wall (trapezoid, converging to vanishing point) ──
+            const rwDark = VGA.nearest(55, 80, 55);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, rwDark);
+            }
+            // Right wall baseboard
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, C.BROWN);
+            }
+
+            // ── Floor with perspective tile grid ──
+            Draw.rect(ctx, 0, floorY, 320, 200 - floorY, C.FLOOR_TILE);
+            // Perspective grid lines — horizontal (get wider apart toward bottom)
+            for (let i = 0; i < 10; i++) {
+                const t = i / 10;
+                const y = Math.round(floorY + (200 - floorY) * t);
+                Draw.line(ctx, 0, y, 320, y, C.LGRAY);
+            }
+            // Perspective grid lines — vertical (converge to VP)
+            for (let ix = -4; ix <= 4; ix++) {
+                const botX = 160 + ix * 40;
+                const topX = vpX + ix * 12;
+                Draw.line(ctx, topX, floorY, botX, 200, C.LGRAY);
+            }
+
+            // ── Fluorescent light fixtures (on ceiling, receding) ──
+            for (let li = 0; li < 3; li++) {
+                const t = 0.2 + li * 0.3;
+                const lx = Math.round(vpX - 20 * (1 - t * 0.5));
+                const ly = Math.round(bwTop * (1 - t) + 2);
+                const lw = Math.round(40 * (1 - t * 0.3));
+                Draw.rect(ctx, lx, ly, lw, 2, C.WHITE);
+                Draw.dither(ctx, lx, ly + 2, lw, 1, C.WHITE, C.WALL_GREEN);
+            }
+
+            // ── Briefing room door (on back wall, center) ──
+            const doorW = 60, doorH = 50;
+            const doorX = vpX - doorW / 2, doorY = bwBot - doorH;
+            Draw.rect(ctx, doorX, doorY, doorW, doorH, C.DOOR_BROWN);
+            // Double door panels
+            Draw.rect(ctx, doorX + 2, doorY + 2, doorW / 2 - 3, doorH - 4, VGA.nearest(120, 80, 50));
+            Draw.rect(ctx, doorX + doorW / 2 + 1, doorY + 2, doorW / 2 - 3, doorH - 4, VGA.nearest(120, 80, 50));
+            // Handles
+            Draw.pixel(ctx, doorX + doorW / 2 - 3, doorY + doorH / 2, C.BADGE_GOLD);
+            Draw.pixel(ctx, doorX + doorW / 2 + 2, doorY + doorH / 2, C.BADGE_GOLD);
+            // Door frame
+            Draw.rect(ctx, doorX - 2, doorY - 2, doorW + 4, 2, C.BROWN);
+            Draw.rect(ctx, doorX - 2, doorY, 2, doorH, C.BROWN);
+            Draw.rect(ctx, doorX + doorW, doorY, 2, doorH, C.BROWN);
+            // Transom window above door
+            Draw.rect(ctx, doorX + 5, doorY - 8, doorW - 10, 6, C.WINDOW_CYAN);
+            Draw.text(ctx, 'BRIEFING', doorX + 8, doorY - 4, C.WHITE, 5);
+
+            // ── Locker room door (bottom, going south — in the floor plane) ──
+            Draw.rect(ctx, 140, floorY - 2, 40, 2, C.DOOR_BROWN);
+            // Door mat
+            Draw.rect(ctx, 145, floorY, 30, 4, C.DGRAY);
+
+            // ── Left wall objects (perspective-scaled) ──
+
+            // Bulletin board on left wall
+            const bbY = Math.round(bwTop + (bwBot - bwTop) * 0.15);
+            const bbH = Math.round((bwBot - bwTop) * 0.55);
+            const bbW = Math.round(bwL * 0.7);
+            const bbX = Math.round(bwL * 0.1);
+            Draw.rect(ctx, bbX, bbY, bbW, bbH, C.DESK_BROWN);
+            Draw.rect(ctx, bbX + 2, bbY + 2, bbW - 4, bbH - 4, C.BROWN);
+            // Pinned notes (skewed for perspective)
             for (let i = 0; i < 6; i++) {
-                const nx = 40 + rng.int(0, 44);
-                const ny = 40 + rng.int(0, 34);
-                Draw.rect(ctx, nx, ny, rng.int(6, 12), rng.int(5, 8), rng.pick([C.WHITE, C.YELLOW, C.LRED]));
+                const nx = bbX + 4 + rng.int(0, bbW - 14);
+                const ny = bbY + 4 + rng.int(0, bbH - 12);
+                Draw.rect(ctx, nx, ny, rng.int(4, 8), rng.int(3, 6), rng.pick([C.WHITE, C.YELLOW, C.LRED]));
             }
 
-            // Case board (center-left)
-            Draw.rect(ctx, 100, 38, 48, 40, C.WHITE);
-            Draw.rect(ctx, 101, 39, 46, 38, C.LGRAY);
+            // Fire extinguisher (left wall, lower)
+            const feY = Math.round(bwTop + (bwBot - bwTop) * 0.6);
+            Draw.rect(ctx, bbX + 3, feY, 4, 10, C.RED);
+            Draw.rect(ctx, bbX + 4, feY - 2, 2, 2, C.METAL_GRAY);
+
+            // ── Right wall objects ──
+
+            // Captain's office door (on right wall — trapezoid'd)
+            const cdYt = Math.round(bwTop + (bwBot - bwTop) * 0.1);
+            const cdYb = bwBot;
+            const cdH = cdYb - cdYt;
+            const cdW = Math.round((320 - bwR) * 0.5);
+            const cdX = bwR + 2;
+            Draw.rect(ctx, cdX, cdYt, cdW, cdH, C.DOOR_BROWN);
+            Draw.rect(ctx, cdX + 2, cdYt + 2, cdW - 4, cdH - 4, VGA.nearest(120, 80, 50));
+            Draw.pixel(ctx, cdX + 3, cdYt + cdH / 2, C.BADGE_GOLD); // handle
+            // Name plate
+            Draw.rect(ctx, cdX + 4, cdYt + 6, cdW - 8, 12, VGA.nearest(30, 30, 30));
+            Draw.text(ctx, 'CAPT', cdX + 6, cdYt + 12, C.BADGE_GOLD, 4);
+            Draw.text(ctx, 'TORRES', cdX + 4, cdYt + 17, C.BADGE_GOLD, 3);
+
+            // Case board (on back wall, left of door)
+            const cbX = bwL + 6, cbY = bwTop + 10;
+            const cbW = 38, cbH = 30;
+            Draw.rect(ctx, cbX, cbY, cbW, cbH, C.WHITE);
+            Draw.rect(ctx, cbX + 1, cbY + 1, cbW - 2, cbH - 2, C.LGRAY);
             // Photos
-            Draw.rect(ctx, 105, 42, 10, 12, C.SKIN_LIGHT);
-            Draw.rect(ctx, 120, 42, 10, 12, C.DGRAY);
-            Draw.rect(ctx, 135, 42, 10, 12, C.SKIN_DARK);
+            Draw.rect(ctx, cbX + 3, cbY + 4, 8, 10, C.SKIN_LIGHT);
+            Draw.rect(ctx, cbX + 14, cbY + 4, 8, 10, C.DGRAY);
+            Draw.rect(ctx, cbX + 25, cbY + 4, 8, 10, C.SKIN_DARK);
             // Red string
-            Draw.line(ctx, 110, 48, 125, 48, C.RED);
-            Draw.line(ctx, 125, 48, 140, 48, C.RED);
-            Draw.text(ctx, 'CHEN', 108, 67, C.RED, 5);
+            Draw.line(ctx, cbX + 7, cbY + 9, cbX + 18, cbY + 9, C.RED);
+            Draw.line(ctx, cbX + 18, cbY + 9, cbX + 29, cbY + 9, C.RED);
+            Draw.text(ctx, 'CHEN', cbX + 6, cbY + 24, C.RED, 4);
 
-            // Doors
-            // North - briefing room
-            Draw.rect(ctx, 125, 75, 70, 20, C.DOOR_BROWN);
-            Draw.rect(ctx, 127, 76, 30, 18, C.DOOR_BROWN);
-            Draw.rect(ctx, 163, 76, 30, 18, C.DOOR_BROWN);
-            Draw.text(ctx, 'BRIEFING', 133, 88, C.WHITE, 5);
+            // Water cooler (on right side, back wall area)
+            const wcX = bwR - 22, wcY = bwBot - 26;
+            Draw.rect(ctx, wcX, wcY, 10, 22, C.WINDOW_CYAN);
+            Draw.rect(ctx, wcX + 2, wcY - 4, 6, 4, C.LBLUE);
+            // Cup
+            Draw.rect(ctx, wcX + 10, wcY + 16, 4, 4, C.WHITE);
 
-            // East - Captain's office door
-            Draw.rect(ctx, 298, 55, 22, 40, C.DOOR_BROWN);
-            Draw.text(ctx, 'CAPT', 300, 70, C.BADGE_GOLD, 5);
-            Draw.text(ctx, 'TORRES', 298, 78, C.BADGE_GOLD, 4);
+            // ── Parking lot exit indicator (left wall, near floor) ──
+            // "EXIT" sign on left wall pointing west
+            const exL = Math.round(bwL * 0.05);
+            const exY = Math.round(bwBot - 10);
+            Draw.rect(ctx, exL, exY - 1, 16, 8, C.LGREEN);
+            Draw.text(ctx, 'EXIT', exL + 1, exY + 5, C.WHITE, 3);
 
-            // Water cooler
-            Draw.rect(ctx, 253, 68, 14, 28, C.WINDOW_CYAN);
-            Draw.rect(ctx, 256, 62, 8, 6, C.LBLUE);
-
-            // Overhead lights
-            for (let lx = 40; lx < 300; lx += 80) {
-                Draw.rect(ctx, lx, 4, 60, 3, C.WHITE);
-                Draw.dither(ctx, lx, 7, 60, 2, C.WHITE, C.WALL_GREEN);
+            // ── NPC officer walking smoothly across hallway ──
+            // Smooth cycle: walks from left to right across floor area, pauses, then repeats
+            const npcCycle = 600; // total frames for full cycle
+            const npcPhase = frame % npcCycle;
+            if (npcPhase < 300) {
+                // Walking left to right across floor
+                const npcT = npcPhase / 300;
+                const npcX = 40 + npcT * 240;
+                // Y follows perspective: further back = higher on screen
+                const npcY = 120 + npcT * 50;
+                Draw.person(ctx, Math.round(npcX), Math.round(npcY), 201, { uniform: true });
             }
+            // phases 300-600: officer is "off screen" (in a room)
 
-            // Floor shine / wax reflection
-            for (let i = 0; i < 8; i++) {
+            // ── Floor shine / wax reflections ──
+            for (let i = 0; i < 12; i++) {
                 const sx = rng.int(20, 300);
-                const sy = rng.int(100, 190);
+                const sy = rng.int(floorY + 5, 195);
                 Draw.pixel(ctx, sx, sy, C.WHITE);
             }
 
-            // Fire extinguisher on wall (left of bulletin board)
-            Draw.rect(ctx, 22, 60, 6, 14, C.RED);
-            Draw.rect(ctx, 23, 58, 4, 3, C.METAL_GRAY); // handle
-            Draw.pixel(ctx, 25, 74, C.BLACK); // hose nozzle
-
-            // Officers walking in background
-            if (frame % 300 < 150) {
-                Draw.person(ctx, 80 + (frame % 150) * 0.3, 130, 201, { uniform: true });
-            }
-
-            // Direction labels
-            Draw.text(ctx, '< Parking', 5, 145, C.YELLOW, 5);
-            Draw.text(ctx, 'Office >', 270, 145, C.YELLOW, 5);
-            Draw.text(ctx, '^ Briefing', 138, 98, C.YELLOW, 5);
+            // ── Direction labels ──
+            Draw.text(ctx, '< Parking', 5, 150, C.YELLOW, 5);
+            Draw.text(ctx, 'Office >', 270, 150, C.YELLOW, 5);
+            Draw.text(ctx, '^ Briefing', doorX + 5, bwBot + 3, C.YELLOW, 4);
             Draw.text(ctx, 'v Locker', 143, 192, C.YELLOW, 5);
         },
 
@@ -599,19 +725,19 @@ function registerAllRooms(engine) {
 
     G.registerRoom('briefingRoom', {
         name: 'Police Station — Briefing Room',
-        walkBounds: { x1: 20, y1: 110, x2: 300, y2: 185 },
+        walkBounds: { x1: 20, y1: 100, x2: 300, y2: 185 },
         safeSpawn: [160, 160],
 
         hotspots: [
-            { id: 'podium', x: 130, y: 40, w: 60, h: 30, name: 'Podium',
+            { id: 'podium', x: 142, y: 90, w: 36, h: 22, name: 'Podium',
               description: 'The briefing podium. Captain Torres stands here during briefings.' },
-            { id: 'whiteboard', x: 80, y: 20, w: 160, h: 25, name: 'Whiteboard',
+            { id: 'whiteboard', x: 105, y: 15, w: 130, h: 30, name: 'Whiteboard',
               description: 'A whiteboard with "CHEN CASE — PRIORITY 1" written in red marker.' },
-            { id: 'captain', x: 140, y: 60, w: 40, h: 40, name: 'Captain Torres',
+            { id: 'captain', x: 145, y: 95, w: 30, h: 35, name: 'Captain Torres',
               description: 'Captain Maria Torres. Stern-faced, 20 years on the force. She looks worried.' },
-            { id: 'chairs', x: 40, y: 120, w: 240, h: 30, name: 'Chairs',
+            { id: 'chairs', x: 50, y: 120, w: 220, h: 50, name: 'Chairs',
               description: 'Rows of folding chairs. A few other officers are seated.' },
-            { id: 'caseFile', x: 145, y: 72, w: 30, h: 8, name: 'Case file',
+            { id: 'caseFile', x: 150, y: 104, w: 20, h: 6, name: 'Case file',
               description: 'A manila folder marked "CONFIDENTIAL — CHEN, L."' },
         ],
 
@@ -620,58 +746,103 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            // Floor
-            Draw.rect(ctx, 0, 105, 320, 95, C.CARPET_RED);
-            // Carpet texture
             const rng = new SeededRandom(200);
-            for (let i = 0; i < 150; i++) {
-                const cx = rng.int(0, 319);
-                const cy = rng.int(105, 199);
-                Draw.pixel(ctx, cx, cy, VGA.nearest(140, 45, 45));
+
+            // ── AGI-style pseudo-3D briefing room ──
+            const vpX = 160, vpY = 38;
+            const bwL = 50, bwR = 270, bwTop = 12, bwBot = 95;
+            const floorY = 95;
+
+            // ── Back wall ──
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, bwBot - bwTop, C.WALL_BEIGE);
+            Draw.rect(ctx, bwL, bwBot - 4, bwR - bwL, 4, C.BROWN); // baseboard
+
+            // ── Left wall (trapezoid) ──
+            const lwDark = VGA.nearest(185, 170, 145);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, lwDark);
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, C.BROWN);
             }
 
-            // Walls
-            Draw.rect(ctx, 0, 0, 320, 105, C.WALL_BEIGE);
-            Draw.rect(ctx, 0, 98, 320, 5, C.BROWN);
+            // ── Right wall (trapezoid) ──
+            const rwDark = VGA.nearest(175, 160, 135);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, rwDark);
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, C.BROWN);
+            }
 
-            // Whiteboard
-            Draw.rect(ctx, 75, 15, 170, 30, C.DGRAY);
-            Draw.rect(ctx, 78, 17, 164, 26, C.WHITE);
-            Draw.text(ctx, 'CHEN CASE', 100, 30, C.RED, 7);
-            Draw.text(ctx, 'PRIORITY 1', 105, 38, C.RED, 5);
-            // Whiteboard markers in tray
-            Draw.rect(ctx, 78, 43, 30, 2, C.DGRAY); // tray
-            Draw.rect(ctx, 80, 41, 4, 3, C.RED); // red marker
-            Draw.rect(ctx, 86, 41, 4, 3, C.BLUE); // blue marker
-            Draw.rect(ctx, 92, 41, 4, 3, C.BLACK); // black marker
+            // ── Ceiling ──
+            Draw.rect(ctx, 0, 0, 320, bwTop, C.WALL_BEIGE);
 
-            // American flag (left side)
-            Draw.rect(ctx, 30, 20, 2, 50, C.BADGE_GOLD); // pole
-            Draw.rect(ctx, 32, 20, 20, 12, C.RED);
-            Draw.rect(ctx, 32, 23, 20, 2, C.WHITE);
-            Draw.rect(ctx, 32, 27, 20, 2, C.WHITE);
-            Draw.rect(ctx, 32, 20, 8, 8, C.BLUE); // union
-            // Stars (dots)
+            // ── Floor — red carpet with perspective ──
+            Draw.rect(ctx, 0, floorY, 320, 200 - floorY, C.CARPET_RED);
+            for (let i = 0; i < 150; i++) {
+                Draw.pixel(ctx, rng.int(0, 319), rng.int(floorY, 199), VGA.nearest(140, 45, 45));
+            }
+            // Perspective floor lines
+            for (let i = 1; i < 6; i++) {
+                const t = i / 6;
+                const y = Math.round(floorY + (200 - floorY) * t);
+                Draw.line(ctx, 0, y, 320, y, VGA.nearest(130, 40, 40));
+            }
+
+            // ── Fluorescent lights on ceiling ──
+            Draw.rect(ctx, 80, 4, 70, 3, C.WHITE);
+            Draw.rect(ctx, 190, 4, 60, 3, C.WHITE);
+            Draw.dither(ctx, 80, 7, 70, 2, C.WHITE, C.WALL_BEIGE);
+            Draw.dither(ctx, 190, 7, 60, 2, C.WHITE, C.WALL_BEIGE);
+
+            // ── Whiteboard on back wall (center) ──
+            Draw.rect(ctx, bwL + 55, bwTop + 3, 130, 30, C.DGRAY);
+            Draw.rect(ctx, bwL + 57, bwTop + 5, 126, 26, C.WHITE);
+            Draw.text(ctx, 'CHEN CASE', bwL + 75, bwTop + 17, C.RED, 7);
+            Draw.text(ctx, 'PRIORITY 1', bwL + 78, bwTop + 25, C.RED, 5);
+            // Markers in tray
+            Draw.rect(ctx, bwL + 57, bwTop + 31, 30, 2, C.DGRAY);
+            Draw.rect(ctx, bwL + 59, bwTop + 29, 4, 3, C.RED);
+            Draw.rect(ctx, bwL + 65, bwTop + 29, 4, 3, C.BLUE);
+            Draw.rect(ctx, bwL + 71, bwTop + 29, 4, 3, C.BLACK);
+
+            // ── American flag on back wall (left) ──
+            Draw.rect(ctx, bwL + 8, bwTop + 5, 2, 50, C.BADGE_GOLD);
+            Draw.rect(ctx, bwL + 10, bwTop + 5, 20, 12, C.RED);
+            Draw.rect(ctx, bwL + 10, bwTop + 8, 20, 2, C.WHITE);
+            Draw.rect(ctx, bwL + 10, bwTop + 12, 20, 2, C.WHITE);
+            Draw.rect(ctx, bwL + 10, bwTop + 5, 8, 8, C.BLUE);
             for (let sy = 0; sy < 2; sy++) {
                 for (let sx = 0; sx < 3; sx++) {
-                    Draw.pixel(ctx, 34 + sx * 2, 21 + sy * 3, C.WHITE);
+                    Draw.pixel(ctx, bwL + 12 + sx * 2, bwTop + 6 + sy * 3, C.WHITE);
                 }
             }
 
-            // Wall clock (right)
-            Draw.ellipse(ctx, 275, 28, 7, 7, C.WHITE);
-            Draw.ellipse(ctx, 275, 28, 7, 7, C.DGRAY, false);
-            Draw.line(ctx, 275, 28, 275, 23, C.BLACK);
-            Draw.line(ctx, 275, 28, 279, 28, C.BLACK);
-            Draw.pixel(ctx, 275, 28, C.RED);
+            // ── Wall clock on right wall ──
+            const clkX = bwR + 10, clkY = bwTop + 18;
+            Draw.ellipse(ctx, clkX, clkY, 6, 6, C.WHITE);
+            Draw.ellipse(ctx, clkX, clkY, 6, 6, C.DGRAY, false);
+            Draw.line(ctx, clkX, clkY, clkX, clkY - 4, C.BLACK);
+            Draw.line(ctx, clkX, clkY, clkX + 3, clkY, C.BLACK);
+            Draw.pixel(ctx, clkX, clkY, C.RED);
 
-            // Podium
-            Draw.rect(ctx, 140, 50, 40, 30, C.DESK_BROWN);
-            Draw.rect(ctx, 141, 51, 38, 28, C.BROWN);
+            // ── Podium on floor (perspective — scaled by depth) ──
+            const podX = vpX - 18, podY = bwBot - 5;
+            Draw.rect(ctx, podX, podY, 36, 22, C.DESK_BROWN);
+            Draw.rect(ctx, podX + 1, podY + 1, 34, 20, C.BROWN);
 
-            // Captain Torres (standing at podium)
+            // Captain Torres standing at podium
             if (!state.flags.briefingDone) {
-                Draw.person(ctx, 160, 85, 500, { 
+                Draw.person(ctx, vpX, podY + 30, 500, {
                     uniform: true,
                     skin: C.SKIN_DARK,
                     hair: C.HAIR_BLACK
@@ -679,24 +850,35 @@ function registerAllRooms(engine) {
             }
 
             // Case file on podium
-            Draw.rect(ctx, 148, 70, 24, 8, C.YELLOW);
-            Draw.text(ctx, 'CASE', 151, 76, C.RED, 4);
+            Draw.rect(ctx, podX + 8, podY + 14, 20, 6, C.YELLOW);
+            Draw.text(ctx, 'CASE', podX + 10, podY + 19, C.RED, 4);
 
-            // Chairs (rows)
-            for (let row = 0; row < 2; row++) {
-                for (let col = 0; col < 7; col++) {
-                    const cx = 50 + col * 35;
-                    const cy = 120 + row * 20;
-                    Draw.rect(ctx, cx, cy, 12, 10, C.DGRAY);
-                    Draw.rect(ctx, cx + 1, cy - 8, 10, 8, C.DGRAY);
+            // ── Chairs in perspective rows ──
+            for (let row = 0; row < 3; row++) {
+                const rowT = 0.3 + row * 0.22;
+                const rowY = Math.round(floorY + (200 - floorY) * rowT);
+                const chairScale = 0.7 + row * 0.15;
+                const cw = Math.round(10 * chairScale);
+                const ch = Math.round(8 * chairScale);
+                const spacing = Math.round(30 * chairScale);
+                const numChairs = 7 - row;
+                const startX = vpX - Math.round(numChairs * spacing / 2);
+                for (let col = 0; col < numChairs; col++) {
+                    const cx = startX + col * spacing;
+                    Draw.rect(ctx, cx, rowY, cw, ch, C.DGRAY);
+                    Draw.rect(ctx, cx + 1, rowY - ch, cw - 2, ch, C.DGRAY);
                 }
             }
 
-            // A couple officers sitting
-            Draw.person(ctx, 85, 132, 301, { uniform: true });
-            Draw.person(ctx, 190, 132, 302, { uniform: true });
+            // Officers sitting (in 2nd row)
+            Draw.person(ctx, 105, 135, 301, { uniform: true });
+            Draw.person(ctx, 205, 135, 302, { uniform: true });
 
-            // Exit
+            // ── Exit door on back wall (center-bottom) ──
+            Draw.rect(ctx, vpX - 20, bwBot - 12, 40, 12, C.DOOR_BROWN);
+            Draw.text(ctx, 'HALL', vpX - 10, bwBot - 4, C.WHITE, 4);
+
+            // Direction
             Draw.text(ctx, 'v Exit', 148, 193, C.YELLOW, 5);
         },
 
@@ -790,77 +972,138 @@ function registerAllRooms(engine) {
 
     G.registerRoom('captainOffice', {
         name: "Captain Torres' Office",
-        walkBounds: { x1: 20, y1: 100, x2: 300, y2: 185 },
+        walkBounds: { x1: 20, y1: 95, x2: 300, y2: 185 },
         safeSpawn: [160, 150],
 
         hotspots: [
-            { id: 'desk', x: 120, y: 50, w: 80, h: 30, name: "Captain's desk",
+            { id: 'desk', x: 100, y: 88, w: 100, h: 28, name: "Captain's desk",
               description: 'A large mahogany desk covered in papers, a desk lamp, and a framed commendation.' },
-            { id: 'phone', x: 180, y: 55, w: 15, h: 10, name: 'Phone',
+            { id: 'phone', x: 177, y: 90, w: 12, h: 7, name: 'Phone',
               description: 'A desk phone. The light is blinking — messages waiting.' },
-            { id: 'fileCabinet', x: 260, y: 40, w: 30, h: 50, name: 'File cabinet',
+            { id: 'fileCabinet', x: 270, y: 42, w: 28, h: 48, name: 'File cabinet',
               description: 'A metal file cabinet. Probably locked.' },
-            { id: 'flag', x: 30, y: 20, w: 25, h: 50, name: 'American flag',
+            { id: 'flag', x: 57, y: 19, w: 20, h: 45, name: 'American flag',
               description: 'An American flag on a brass stand.' },
-            { id: 'commendation', x: 140, y: 20, w: 40, h: 20, name: 'Commendation',
+            { id: 'commendation', x: 135, y: 18, w: 38, h: 18, name: 'Commendation',
               description: 'A framed commendation: "Captain Maria Torres — Outstanding Service, Oakdale PD, 2018."' },
         ],
 
         exits: [
-            { x1: 0, y1: 110, x2: 15, y2: 175, target: 'hallway', enterX: 290, enterY: 150, enterDir: 1 },
+            { x1: 0, y1: 100, x2: 28, y2: 175, target: 'hallway', enterX: 290, enterY: 150, enterDir: 1 },
         ],
 
         draw(ctx, state, frame) {
-            // Floor — nicer carpet
-            Draw.rect(ctx, 0, 95, 320, 105, C.CARPET_RED);
             const rng = new SeededRandom(301);
+
+            // ── AGI-style pseudo-3D captain's office ──
+            // Smaller, more intimate room — VP slightly left (door is on left)
+            const vpX = 150, vpY = 40;
+            const bwL = 45, bwR = 275, bwTop = 14, bwBot = 90;
+            const floorY = 90;
+
+            // ── Back wall ──
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, bwBot - bwTop, C.WALL_BEIGE);
+            // Wood paneling on back wall lower half
+            for (let px = bwL; px < bwR; px += 12) {
+                const w = Math.min(11, bwR - px);
+                Draw.rect(ctx, px, bwBot - 28, w, 24, VGA.nearest(160, 120, 80));
+                Draw.line(ctx, px, bwBot - 28, px, bwBot - 4, VGA.nearest(130, 95, 60));
+            }
+            Draw.rect(ctx, bwL, bwBot - 4, bwR - bwL, 4, C.BROWN);
+
+            // ── Left wall (trapezoid — door wall) ──
+            const lwDark = VGA.nearest(185, 170, 145);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, lwDark);
+            }
+            // Wood paneling on left wall
+            for (let y = bwBot - 28; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, VGA.nearest(150, 112, 70));
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, C.BROWN);
+            }
+
+            // ── Right wall (trapezoid) ──
+            const rwDark = VGA.nearest(175, 160, 135);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, rwDark);
+            }
+            for (let y = bwBot - 28; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, VGA.nearest(150, 112, 70));
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, C.BROWN);
+            }
+
+            // ── Ceiling ──
+            Draw.rect(ctx, 0, 0, 320, bwTop, C.WALL_BEIGE);
+
+            // ── Floor — red carpet with perspective ──
+            Draw.rect(ctx, 0, floorY, 320, 200 - floorY, C.CARPET_RED);
             for (let i = 0; i < 100; i++) {
-                Draw.pixel(ctx, rng.int(0, 319), rng.int(95, 199), VGA.nearest(120, 35, 35));
+                Draw.pixel(ctx, rng.int(0, 319), rng.int(floorY, 199), VGA.nearest(120, 35, 35));
             }
 
-            // Walls
-            Draw.rect(ctx, 0, 0, 320, 95, C.WALL_BEIGE);
-            Draw.rect(ctx, 0, 88, 320, 5, C.BROWN);
-            // Wood paneling lower half
-            for (let px = 0; px < 320; px += 12) {
-                Draw.rect(ctx, px, 60, 11, 28, VGA.nearest(160, 120, 80));
-                Draw.line(ctx, px, 60, px, 88, VGA.nearest(130, 95, 60));
-            }
+            // ── Ceiling light ──
+            Draw.rect(ctx, vpX - 12, 4, 24, 3, C.WHITE);
+            Draw.dither(ctx, vpX - 12, 7, 24, 2, C.WHITE, C.WALL_BEIGE);
 
-            // Flag
-            Draw.rect(ctx, 38, 15, 2, 55, C.BADGE_GOLD);
-            Draw.rect(ctx, 25, 18, 20, 15, C.RED);
-            Draw.rect(ctx, 25, 27, 20, 6, C.WHITE);
-            Draw.rect(ctx, 25, 18, 8, 10, C.BLUE);
+            // ── Flag on back wall (left side) ──
+            Draw.rect(ctx, bwL + 12, bwTop + 5, 2, 45, C.BADGE_GOLD);
+            Draw.rect(ctx, bwL + 14, bwTop + 5, 18, 13, C.RED);
+            Draw.rect(ctx, bwL + 14, bwTop + 11, 18, 2, C.WHITE);
+            Draw.rect(ctx, bwL + 14, bwTop + 5, 7, 9, C.BLUE);
 
-            // Desk
-            Draw.rect(ctx, 115, 50, 90, 35, C.DESK_BROWN);
-            Draw.rect(ctx, 116, 51, 88, 3, VGA.nearest(140, 100, 65)); // desktop surface
+            // ── Commendation on back wall ──
+            Draw.rect(ctx, vpX - 15, bwTop + 4, 38, 18, C.DESK_BROWN);
+            Draw.rect(ctx, vpX - 13, bwTop + 6, 34, 14, C.YELLOW);
+            Draw.text(ctx, 'TORRES', vpX - 10, bwTop + 14, C.BLACK, 4);
+
+            // ── Desk (perspective — large, centered on floor) ──
+            Draw.rect(ctx, 100, bwBot - 2, 100, 28, C.DESK_BROWN);
+            Draw.rect(ctx, 101, bwBot - 1, 98, 3, VGA.nearest(140, 100, 65)); // desktop surface
             // Papers
-            Draw.rect(ctx, 125, 52, 15, 10, C.WHITE);
-            Draw.rect(ctx, 145, 53, 12, 8, C.WHITE);
+            Draw.rect(ctx, 110, bwBot, 15, 8, C.WHITE);
+            Draw.rect(ctx, 130, bwBot + 1, 12, 6, C.WHITE);
             // Lamp
-            Draw.rect(ctx, 170, 42, 3, 12, C.METAL_GRAY);
-            Draw.rect(ctx, 164, 38, 15, 5, C.LGREEN);
+            Draw.rect(ctx, 165, bwBot - 12, 3, 12, C.METAL_GRAY);
+            Draw.rect(ctx, 159, bwBot - 16, 15, 5, C.LGREEN);
             // Phone
-            Draw.rect(ctx, 182, 52, 12, 8, C.BLACK);
-            if (frame % 60 < 30) Draw.pixel(ctx, 188, 53, C.LRED); // blinking light
+            Draw.rect(ctx, 177, bwBot, 12, 7, C.BLACK);
+            if (frame % 60 < 30) Draw.pixel(ctx, 183, bwBot + 1, C.LRED);
 
-            // Commendation
-            Draw.rect(ctx, 138, 18, 44, 22, C.DESK_BROWN);
-            Draw.rect(ctx, 140, 20, 40, 18, C.YELLOW);
-            Draw.text(ctx, 'TORRES', 143, 28, C.BLACK, 4);
-
-            // File cabinet
-            Draw.rect(ctx, 258, 38, 34, 52, C.LOCKER_GRAY);
+            // ── File cabinet on right wall ──
+            Draw.rect(ctx, bwR - 5, bwBot - 48, 28, 48, C.LOCKER_GRAY);
             for (let d = 0; d < 3; d++) {
-                Draw.rect(ctx, 260, 40 + d * 16, 30, 14, C.LOCKER_DARK);
-                Draw.rect(ctx, 272, 44 + d * 16, 6, 3, C.METAL_GRAY);
+                Draw.rect(ctx, bwR - 3, bwBot - 46 + d * 15, 24, 13, C.LOCKER_DARK);
+                Draw.rect(ctx, bwR + 7, bwBot - 42 + d * 15, 6, 3, C.METAL_GRAY);
             }
 
-            // Chair behind desk
-            Draw.rect(ctx, 150, 82, 20, 14, C.BLACK);
-            Draw.rect(ctx, 152, 72, 16, 12, C.BLACK);
+            // ── Chair behind desk ──
+            Draw.rect(ctx, 142, bwBot + 24, 18, 12, C.BLACK);
+            Draw.rect(ctx, 144, bwBot + 15, 14, 10, C.BLACK);
+
+            // ── Door on left wall (to hallway) ──
+            const dLt = 0.15, dLb = 0.85;
+            const dTop = Math.round(bwTop + (bwBot - bwTop) * dLt);
+            const dBot = Math.round(bwTop + (bwBot - bwTop) * dLb);
+            const dW = Math.round(bwL * 0.6);
+            Draw.rect(ctx, 2, dTop, dW, dBot - dTop, C.DOOR_BROWN);
+            Draw.rect(ctx, 4, dTop + 2, dW - 4, dBot - dTop - 4, VGA.nearest(120, 80, 50));
+            Draw.pixel(ctx, dW - 2, dTop + (dBot - dTop) / 2, C.BADGE_GOLD);
 
             Draw.text(ctx, '< Hall', 5, 145, C.YELLOW, 5);
         },
@@ -1244,21 +1487,21 @@ function registerAllRooms(engine) {
 
     G.registerRoom('diner', {
         name: "Rosie's Diner",
-        walkBounds: { x1: 20, y1: 100, x2: 300, y2: 185 },
+        walkBounds: { x1: 20, y1: 95, x2: 300, y2: 185 },
         safeSpawn: [160, 160],
 
         hotspots: [
-            { id: 'counter', x: 10, y: 55, w: 125, h: 20, name: 'Counter',
+            { id: 'counter', x: 5, y: 82, w: 75, h: 38, name: 'Counter',
               description: 'A long diner counter with red vinyl stools. Coffee stains and napkin dispensers.' },
-            { id: 'rosie', x: 60, y: 35, w: 30, h: 25, name: 'Rosie',
+            { id: 'rosie', x: 55, y: 82, w: 30, h: 20, name: 'Rosie',
               description: 'Rosie, the owner. A large woman with curly red hair, wiping glasses behind the counter.' },
-            { id: 'witness', x: 220, y: 95, w: 30, h: 30, name: 'Nervous woman',
+            { id: 'witness', x: 220, y: 98, w: 35, h: 25, name: 'Nervous woman',
               description: 'A nervous-looking young woman in a booth, fidgeting with a coffee cup. She keeps looking at the door.' },
-            { id: 'jukebox', x: 270, y: 50, w: 25, h: 40, name: 'Jukebox',
+            { id: 'jukebox', x: 267, y: 52, w: 18, h: 38, name: 'Jukebox',
               description: 'A vintage jukebox. Currently playing some old country song.' },
-            { id: 'booth1', x: 180, y: 85, w: 60, h: 20, name: 'Booth',
+            { id: 'booth1', x: 200, y: 95, w: 60, h: 20, name: 'Booth',
               description: 'A red vinyl booth. Well-worn but clean.' },
-            { id: 'menuBoard', x: 45, y: 20, w: 50, h: 15, name: 'Menu board',
+            { id: 'menuBoard', x: 48, y: 15, w: 45, h: 16, name: 'Menu board',
               description: "Today's special: Meatloaf and mashed potatoes, $6.99. Coffee, $1.50." },
         ],
 
@@ -1269,113 +1512,203 @@ function registerAllRooms(engine) {
         draw(ctx, state, frame) {
             const rng = new SeededRandom(700);
 
-            // Floor — black and white checkered tile
-            for (let ty = 95; ty < 200; ty += 8) {
+            // ── AGI-style pseudo-3D diner interior ──
+            // Counter/bar recedes along left wall, booths along right wall
+            const vpX = 155, vpY = 38;
+            const bwL = 40, bwR = 275, bwTop = 10, bwBot = 90;
+            const floorY = 90;
+            const warmWall = VGA.nearest(200, 170, 130);
+
+            // ── Back wall ──
+            Draw.rect(ctx, bwL, bwTop, bwR - bwL, bwBot - bwTop, warmWall);
+            // Wainscoting on back wall
+            Draw.rect(ctx, bwL, bwBot - 18, bwR - bwL, 14, VGA.nearest(170, 140, 100));
+            Draw.line(ctx, bwL, bwBot - 18, bwR, bwBot - 18, VGA.nearest(140, 110, 75));
+            Draw.rect(ctx, bwL, bwBot - 4, bwR - bwL, 4, C.BROWN);
+
+            // ── Left wall (trapezoid — counter/bar wall) ──
+            const lwColor = VGA.nearest(190, 160, 120);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, lwColor);
+            }
+            // Wainscoting on left wall
+            for (let y = bwBot - 18; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, VGA.nearest(160, 130, 90));
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwL * (1 - t));
+                Draw.line(ctx, wallX, y, bwL, y, C.BROWN);
+            }
+
+            // ── Right wall (trapezoid — booth wall) ──
+            const rwColor = VGA.nearest(185, 155, 115);
+            for (let y = bwTop; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, rwColor);
+            }
+            for (let y = bwBot - 18; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, VGA.nearest(160, 130, 90));
+            }
+            for (let y = bwBot - 4; y <= floorY; y++) {
+                const t = (y - bwTop) / (floorY - bwTop);
+                const wallX = Math.round(bwR + (320 - bwR) * t);
+                Draw.line(ctx, bwR, y, wallX, y, C.BROWN);
+            }
+
+            // ── Ceiling ──
+            Draw.rect(ctx, 0, 0, 320, bwTop, warmWall);
+
+            // ── Floor — checkered with perspective ──
+            for (let ty = floorY; ty < 200; ty += 8) {
                 for (let tx = 0; tx < 320; tx += 8) {
                     const check = ((tx / 8 + ty / 8) % 2 === 0);
                     Draw.rect(ctx, tx, ty, 8, 8, check ? C.WHITE : C.BLACK);
                 }
             }
-            // Floor shine reflections
+            // Floor shine
             for (let i = 0; i < 6; i++) {
-                Draw.pixel(ctx, rng.int(10, 310), rng.int(100, 195), C.LGRAY);
+                Draw.pixel(ctx, rng.int(10, 310), rng.int(floorY + 5, 195), C.LGRAY);
             }
 
-            // Walls — warm colors
-            Draw.rect(ctx, 0, 0, 320, 95, VGA.nearest(200, 170, 130));
-            Draw.rect(ctx, 0, 88, 320, 5, C.BROWN);
-            // Wainscoting
-            Draw.rect(ctx, 0, 70, 320, 18, VGA.nearest(170, 140, 100));
-            Draw.line(ctx, 0, 70, 320, 70, VGA.nearest(140, 110, 75));
-
-            // Ceiling fan (animated)
-            const fanCx = 160;
+            // ── Ceiling fan (animated) ──
+            const fanCx = vpX;
             const fanAngle = frame * 0.2;
-            Draw.pixel(ctx, fanCx, 5, C.DGRAY); // mount
-            Draw.rect(ctx, fanCx - 1, 5, 2, 3, C.DGRAY); // rod
+            Draw.pixel(ctx, fanCx, 3, C.DGRAY);
+            Draw.rect(ctx, fanCx - 1, 3, 2, 3, C.DGRAY);
             for (let b = 0; b < 4; b++) {
                 const a = fanAngle + b * (Math.PI / 2);
                 const bx = fanCx + Math.cos(a) * 12;
-                const by = 10 + Math.sin(a) * 3; // foreshortened
-                Draw.line(ctx, fanCx, 8, Math.round(bx), Math.round(by), C.DESK_BROWN);
+                const by = 8 + Math.sin(a) * 3;
+                Draw.line(ctx, fanCx, 6, Math.round(bx), Math.round(by), C.DESK_BROWN);
             }
 
-            // Counter (left side)
-            Draw.rect(ctx, 5, 55, 130, 22, VGA.nearest(170, 70, 60)); // counter top
-            Draw.rect(ctx, 5, 56, 130, 3, C.METAL_GRAY); // chrome edge
-            // Stools
-            for (let s = 0; s < 5; s++) {
-                const sx = 20 + s * 25;
-                Draw.rect(ctx, sx, 77, 2, 12, C.METAL_GRAY); // pole
-                Draw.ellipse(ctx, sx + 1, 76, 6, 3, C.RED); // seat
-            }
-
-            // Back wall — shelves
-            Draw.rect(ctx, 5, 15, 130, 38, VGA.nearest(160, 130, 100));
+            // ── Back wall shelves (behind counter area) ──
+            Draw.rect(ctx, bwL + 2, bwTop + 4, 100, 36, VGA.nearest(160, 130, 100));
             for (let sh = 0; sh < 3; sh++) {
-                Draw.rect(ctx, 8, 18 + sh * 12, 124, 2, C.DESK_BROWN);
-                // Bottles/cups on shelves
-                for (let i = 0; i < 6; i++) {
-                    const bx = 12 + i * 20;
-                    const by = 10 + sh * 12;
+                Draw.rect(ctx, bwL + 4, bwTop + 7 + sh * 11, 96, 2, C.DESK_BROWN);
+                for (let i = 0; i < 5; i++) {
+                    const bx = bwL + 8 + i * 18;
+                    const by = bwTop + 1 + sh * 11;
                     const clr = rng.pick([C.RED, C.GREEN, C.BLUE, C.BROWN, C.WHITE]);
-                    Draw.rect(ctx, bx, by, 4, 7, clr);
+                    Draw.rect(ctx, bx, by, 4, 6, clr);
                 }
             }
 
-            // Menu board
-            Draw.rect(ctx, 42, 18, 55, 18, C.BLACK);
-            Draw.text(ctx, 'SPECIAL', 48, 26, C.YELLOW, 5);
-            Draw.text(ctx, '$6.99', 52, 33, C.WHITE, 5);
+            // ── Menu board on back wall ──
+            Draw.rect(ctx, bwL + 8, bwTop + 5, 45, 16, C.BLACK);
+            Draw.text(ctx, 'SPECIAL', bwL + 13, bwTop + 13, C.YELLOW, 5);
+            Draw.text(ctx, '$6.99', bwL + 16, bwTop + 19, C.WHITE, 5);
 
-            // Rosie behind counter
-            Draw.person(ctx, 75, 55, 700, { 
+            // ── Counter receding along left wall (perspective) ──
+            // Counter sits in front of back-wall shelves, extends toward viewer
+            const ctrBackY = bwBot - 8, ctrFrontY = floorY + 30;
+            const ctrBackX1 = bwL + 2, ctrBackX2 = bwL + 55;
+            const ctrFrontX1 = 2, ctrFrontX2 = 80;
+            // Draw counter top as trapezoid
+            for (let y = ctrBackY; y <= ctrFrontY; y++) {
+                const t = (y - ctrBackY) / (ctrFrontY - ctrBackY);
+                const x1 = Math.round(ctrBackX1 + (ctrFrontX1 - ctrBackX1) * t);
+                const x2 = Math.round(ctrBackX2 + (ctrFrontX2 - ctrBackX2) * t);
+                Draw.line(ctx, x1, y, x2, y, VGA.nearest(170, 70, 60));
+            }
+            // Chrome edge
+            for (let y = ctrBackY; y <= ctrFrontY; y++) {
+                const t = (y - ctrBackY) / (ctrFrontY - ctrBackY);
+                const x2 = Math.round(ctrBackX2 + (ctrFrontX2 - ctrBackX2) * t);
+                Draw.pixel(ctx, x2, y, C.METAL_GRAY);
+                Draw.pixel(ctx, x2 - 1, y, C.METAL_GRAY);
+            }
+
+            // Stools along counter (3, receding into distance)
+            for (let s = 0; s < 3; s++) {
+                const st = 0.2 + s * 0.3;
+                const sy = Math.round(ctrBackY + (ctrFrontY - ctrBackY) * st);
+                const sx2 = Math.round(ctrBackX2 + (ctrFrontX2 - ctrBackX2) * st);
+                const seatR = Math.round(4 + s * 1.5);
+                Draw.rect(ctx, sx2 + 4, sy, 2, Math.round(8 + s * 2), C.METAL_GRAY);
+                Draw.ellipse(ctx, sx2 + 5, sy - 1, seatR, Math.round(seatR * 0.5), C.RED);
+            }
+
+            // Rosie behind counter (at back)
+            Draw.person(ctx, bwL + 30, bwBot + 2, 700, {
                 skin: C.SKIN_LIGHT,
                 shirt: C.WHITE,
                 hair: VGA.nearest(200, 80, 40),
-                pants: C.BLACK 
+                pants: C.BLACK
             });
 
-            // Coffee machine
-            Draw.rect(ctx, 120, 40, 12, 15, C.METAL_GRAY);
-            Draw.rect(ctx, 122, 42, 8, 4, C.BLACK);
-            // Steam
+            // Coffee machine on back wall
+            Draw.rect(ctx, bwL + 68, bwBot - 20, 10, 14, C.METAL_GRAY);
+            Draw.rect(ctx, bwL + 70, bwBot - 18, 6, 4, C.BLACK);
             if (frame % 30 < 15) {
-                Draw.pixel(ctx, 126, 38, C.WHITE);
-                Draw.pixel(ctx, 128, 36, C.LGRAY);
+                Draw.pixel(ctx, bwL + 73, bwBot - 22, C.WHITE);
+                Draw.pixel(ctx, bwL + 75, bwBot - 24, C.LGRAY);
             }
 
-            // Booths (right side)
+            // ── Booths along right wall (perspective) ──
             for (let b = 0; b < 2; b++) {
-                const by = 85 + b * 30;
-                Draw.rect(ctx, 175, by, 65, 20, C.RED); // seat back
-                Draw.rect(ctx, 180, by + 4, 55, 2, C.DESK_BROWN); // table
+                const bt = 0.15 + b * 0.35;
+                const boothY = Math.round(floorY + (200 - floorY) * bt);
+                const boothScale = 0.6 + b * 0.25;
+                const boothW = Math.round(50 * boothScale);
+                const boothH = Math.round(16 * boothScale);
+                // Compute right wall X at this Y
+                const wallT = (boothY - bwTop) / (floorY - bwTop);
+                const rwX = Math.round(bwR + (320 - bwR) * Math.min(wallT, 1));
+                const boothX = rwX - boothW - 4;
+                // Seat back
+                Draw.rect(ctx, boothX, boothY, boothW, boothH, C.RED);
+                // Table
+                Draw.rect(ctx, boothX + 4, boothY + Math.round(boothH * 0.3), boothW - 8, 2, C.DESK_BROWN);
             }
 
-            // Witness in booth
+            // Witness in booth (first booth)
             if (!state.flags.witnessLeft) {
-                Draw.person(ctx, 230, 108, 701, {
+                Draw.person(ctx, 240, 108, 701, {
                     skin: C.SKIN_LIGHT,
                     shirt: VGA.nearest(80, 80, 150),
                     hair: VGA.nearest(60, 40, 20),
                     pants: C.BLUE
                 });
-                // Coffee cup on table
-                Draw.rect(ctx, 215, 89, 5, 4, C.WHITE);
+                Draw.rect(ctx, 225, 100, 5, 4, C.WHITE); // coffee cup
             }
 
-            // Jukebox
-            Draw.rect(ctx, 272, 48, 22, 42, C.BROWN);
-            Draw.rect(ctx, 274, 50, 18, 20, VGA.nearest(200, 180, 50));
-            // Jukebox lights (animated)
+            // ── Jukebox on right wall (back area) ──
+            Draw.rect(ctx, bwR - 8, bwBot - 38, 18, 38, C.BROWN);
+            Draw.rect(ctx, bwR - 6, bwBot - 35, 14, 18, VGA.nearest(200, 180, 50));
             for (let jl = 0; jl < 3; jl++) {
                 const jc = ((frame + jl * 20) % 60 < 30) ? C.NEON_RED : C.NEON_GREEN;
-                Draw.pixel(ctx, 278 + jl * 5, 72, jc);
+                Draw.pixel(ctx, bwR - 3 + jl * 4, bwBot - 5, jc);
+            }
+
+            // ── Neon ROSIE'S sign on back wall ──
+            const neonFlicker = Math.sin(frame * 0.15) > -0.3;
+            if (neonFlicker) {
+                Draw.rect(ctx, bwL + 110, bwTop + 4, 68, 18, VGA.nearest(60, 20, 20));
+                Draw.text(ctx, "ROSIE'S", bwL + 115, bwTop + 14, C.NEON_RED, 6);
+            } else {
+                Draw.rect(ctx, bwL + 110, bwTop + 4, 68, 18, VGA.nearest(40, 15, 15));
+                Draw.text(ctx, "ROSIE'S", bwL + 115, bwTop + 14, VGA.nearest(150, 30, 30), 6);
             }
 
             // Napkin dispensers on counter
-            Draw.rect(ctx, 35, 52, 6, 5, C.METAL_GRAY);
-            Draw.rect(ctx, 85, 52, 6, 5, C.METAL_GRAY);
+            const napT = 0.5;
+            const napY = Math.round(ctrBackY + (ctrFrontY - ctrBackY) * napT);
+            const napX = Math.round(ctrBackX1 + (ctrFrontX1 - ctrBackX1) * napT) + 8;
+            Draw.rect(ctx, napX, napY - 4, 5, 4, C.METAL_GRAY);
+
+            // ── Exit door on back wall ──
+            Draw.rect(ctx, vpX - 15, bwBot - 14, 30, 14, C.DOOR_BROWN);
+            Draw.rect(ctx, vpX - 11, bwBot - 10, 22, 8, C.WINDOW_CYAN);
+            Draw.text(ctx, 'EXIT', vpX - 10, bwBot - 5, C.WHITE, 4);
 
             Draw.text(ctx, 'v Exit', 148, 193, C.YELLOW, 5);
         },
