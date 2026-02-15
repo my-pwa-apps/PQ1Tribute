@@ -59,6 +59,10 @@ function registerAllRooms(engine) {
                       g.showMessage("You should get your equipment before heading out.");
                       return false;
                   }
+                  if (!g.getFlag('wearingUniform')) {
+                      g.showMessage("You can't go on duty in street clothes! Put on your uniform first.");
+                      return false;
+                  }
                   return true;
               }
             },
@@ -88,10 +92,29 @@ function registerAllRooms(engine) {
                 const lockerColor = isPlayer ? C.LOCKER_GRAY : C.LOCKER_DARK;
                 Draw.rect(ctx, lx, 25, 32, 78, lockerColor);
                 Draw.rect(ctx, lx + 1, 26, 30, 76, C.LOCKER_GRAY);
-                // Vent slits
-                for (let s = 0; s < 4; s++) {
-                    Draw.rect(ctx, lx + 8, 32 + s * 5, 16, 1, C.DGRAY);
+
+                // Show player locker open with uniform inside
+                if (isPlayer && state.flags.lockerOpen) {
+                    // Open locker interior
+                    Draw.rect(ctx, lx + 2, 27, 28, 74, C.BLACK);
+                    // Uniform hanging if not yet worn
+                    if (!state.flags.wearingUniform) {
+                        // Hanger bar
+                        Draw.rect(ctx, lx + 6, 30, 18, 1, C.METAL_GRAY);
+                        // Uniform shirt on hanger
+                        Draw.rect(ctx, lx + 8, 32, 14, 18, C.UNIFORM_BLUE);
+                        // Uniform pants folded below
+                        Draw.rect(ctx, lx + 8, 54, 14, 12, C.UNIFORM_DARK);
+                    }
+                    // Shelf at top
+                    Draw.rect(ctx, lx + 2, 27, 28, 2, C.METAL_GRAY);
+                } else {
+                    // Vent slits (closed locker)
+                    for (let s = 0; s < 4; s++) {
+                        Draw.rect(ctx, lx + 8, 32 + s * 5, 16, 1, C.DGRAY);
+                    }
                 }
+
                 // Handle
                 Draw.rect(ctx, lx + 24, 60, 3, 6, C.METAL_GRAY);
                 // Number
@@ -143,14 +166,14 @@ function registerAllRooms(engine) {
                         return true;
                     }
                     g.setFlag('lockerOpen', true);
-                    g.showDialog('', 'You open your locker. Inside you find your service pistol, badge, radio, handcuffs, and a notebook.', () => {
+                    g.showDialog('', 'You open your locker. Inside you find your police uniform, service pistol, badge, radio, handcuffs, and a notebook.', () => {
                         // Auto-collect items
                         if (g.addItem('gun', 'Service Pistol', '🔫', 'Standard-issue Oakdale PD sidearm.')) g.addScore(3);
                         if (g.addItem('badge', 'Detective Badge', '⭐', 'Your detective shield, #1247.')) g.addScore(2);
                         if (g.addItem('radio', 'Police Radio', '📻', 'Portable radio for dispatch communication.')) g.addScore(2);
                         if (g.addItem('handcuffs', 'Handcuffs', '⛓️', 'Standard-issue handcuffs.')) g.addScore(1);
                         if (g.addItem('notebook', 'Notebook', '📓', 'Your trusty detective notebook and pen.')) g.addScore(2);
-                        g.showMessage("You collected: Pistol, Badge, Radio, Handcuffs, Notebook.");
+                        g.showMessage("You collected: Pistol, Badge, Radio, Handcuffs, Notebook. Your uniform is still hanging in the locker.");
                     });
                     return true;
                 }
@@ -166,11 +189,36 @@ function registerAllRooms(engine) {
                 }
             }
 
+            // Wear/change uniform via clicking locker
+            if (id === 'locker' && verb === 'wear') {
+                if (!g.getFlag('lockerOpen')) {
+                    g.showMessage("You need to open your locker first.");
+                    return true;
+                }
+                if (g.getFlag('wearingUniform')) {
+                    g.showMessage("You're already wearing your uniform.");
+                    return true;
+                }
+                g.setFlag('wearingUniform', true);
+                g.addScore(5);
+                g.showDialog('', 'You change out of your street clothes and into your police uniform. ' +
+                    'The familiar weight of the badge on your chest feels reassuring. ' +
+                    'You look like a proper officer of the law now.');
+                return true;
+            }
+
             if (id === 'mirror' && verb === 'look') {
-                g.showDialog('Alex Mercer',
-                    "Fifteen years on the force. You've seen a lot, but this kidnapping case... " +
-                    "something feels different. Captain Torres seemed rattled at the last meeting. " +
-                    "Better get equipped and head to the briefing room.");
+                if (g.getFlag('wearingUniform')) {
+                    g.showDialog('Alex Mercer',
+                        "You see yourself in your crisp police uniform. Fifteen years on the force " +
+                        "and the uniform still fits. Badge gleaming, ready for duty. " +
+                        "Time to find Lily Chen.");
+                } else {
+                    g.showDialog('Alex Mercer',
+                        "Fifteen years on the force. You're still in your street clothes — " +
+                        "you should change into your uniform before heading out. " +
+                        "Captain Torres runs a tight ship.");
+                }
                 return true;
             }
 
@@ -230,9 +278,46 @@ function registerAllRooms(engine) {
                 g.showMessage("The communal shower. Two of the shower heads are dripping.");
                 return true;
             }
+            // Wear/change uniform via parser
+            if (p.said(11, 56) || p.said(3, 56)) { // wear/change uniform, use uniform
+                if (!g.getFlag('lockerOpen')) {
+                    g.showMessage("You need to open your locker first.");
+                } else if (g.getFlag('wearingUniform')) {
+                    g.showMessage("You're already wearing your uniform.");
+                } else {
+                    g.setFlag('wearingUniform', true);
+                    g.addScore(5);
+                    g.showDialog('', 'You change out of your street clothes and into your police uniform. ' +
+                        'The familiar weight of the badge on your chest feels reassuring. ' +
+                        'You look like a proper officer of the law now.');
+                }
+                return true;
+            }
+            if (p.said(2, 56) || p.said(3, 56)) { // get/take uniform
+                if (!g.getFlag('lockerOpen')) {
+                    g.showMessage("You need to open your locker first.");
+                } else if (g.getFlag('wearingUniform')) {
+                    g.showMessage("You're already wearing your uniform.");
+                } else {
+                    g.showMessage("You should put it on. Type 'wear uniform' or 'change clothes'.");
+                }
+                return true;
+            }
+            if (p.said(1, 56)) { // look uniform
+                if (g.getFlag('wearingUniform')) {
+                    g.showMessage("You're wearing your crisp police uniform. Badge pinned, looking sharp.");
+                } else if (g.getFlag('lockerOpen')) {
+                    g.showMessage("Your police uniform hangs neatly in the locker. Standard-issue Oakdale PD blues.");
+                } else {
+                    g.showMessage("Your uniform is in your locker.");
+                }
+                return true;
+            }
             if (p.said(7, 91) || p.said(7, 60)) { // walk south / walk door
                 if (!g.hasItem('badge') || !g.hasItem('gun')) {
                     g.showMessage("You should get your equipment before heading out.");
+                } else if (!g.getFlag('wearingUniform')) {
+                    g.showMessage("You can't go on duty in street clothes! Put on your uniform first.");
                 } else {
                     g.changeRoom('hallway', 160, 115, 3);
                 }

@@ -1,9 +1,64 @@
 /* ── Badge of Honor — Core Engine ──
  * VGA 320×200 (rendered at 640×400), AGI-inspired architecture
- * Priority bands · LFSR dissolve transitions · Text parser · Procedural rendering
+ * Incorporates Sierra AGI engine patterns:
+ *   - Priority bands with control lines (based on AGI pic priority buffer)
+ *   - LFSR dissolve transitions (Amiga polynomial 0x3500, 17-bit)
+ *   - Text parser with said() matching (AGI WORDS.TOK-style dictionary)
+ *   - Procedural rendering with AGI-style splatter brush (LFSR polynomial 0xB8)
+ *   - Direction-to-loop sprite mapping (AGI VIEW system: R=0, L=1, Front=2, Back=3)
+ *   - Dual-pass room rendering (background + player + foreground) for depth sorting
  */
 
 'use strict';
+
+// ══════════════════════════════════════════════════════════════
+//  AGI ENGINE CONSTANTS (from Sierra AGI Technical Reference)
+// ══════════════════════════════════════════════════════════════
+
+const AGI = Object.freeze({
+    // Screen dimensions (AGI internal → our VGA mapping)
+    SCRIPT_WIDTH: 160,   // AGI game logic resolution
+    SCRIPT_HEIGHT: 168,  // AGI game logic resolution
+    DISPLAY_WIDTH: 320,  // Our logical display
+    DISPLAY_HEIGHT: 200, // Our logical display
+    CANVAS_SCALE: 2,     // Physical pixels per logical pixel
+
+    // Direction-to-loop mapping (VIEW system)
+    // In AGI, sprites have loops (0-3) mapped to facing direction
+    DIR: { RIGHT: 0, LEFT: 1, FRONT: 2, BACK: 3 },
+
+    // Priority bands (AGI pic priority system)
+    PRI: {
+        UNCONDITIONAL_BLOCK: 0,  // Impassable regardless of flags
+        CONDITIONAL_BLOCK: 1,    // Block if object flag "block" unset
+        TRIGGER: 2,              // Trigger signal when stepped on
+        WATER: 3,                // Only objects with "on.water" can enter
+        MIN_DEPTH: 4,            // First depth band (furthest back)
+        MAX_DEPTH: 14,           // Last depth band (nearest)
+        FOREGROUND: 15,          // Always drawn on top
+    },
+
+    // LFSR polynomials from AGI sources
+    LFSR_DISSOLVE_AMIGA: 0x3500,  // 17-bit, covers 320×200
+    LFSR_DISSOLVE_ATARI: 0xD5A0,  // 17-bit, Atari ST variant
+    LFSR_SPLATTER: 0xB8,          // 8-bit, brush splatter pattern
+
+    // Picture rendering opcodes (for reference/documentation)
+    PIC_OP: {
+        SET_VIS_COLOR: 0xF0,
+        DISABLE_VIS: 0xF1,
+        SET_PRI_COLOR: 0xF2,
+        DISABLE_PRI: 0xF3,
+        DRAW_YLINE: 0xF4,
+        DRAW_XLINE: 0xF5,
+        DRAW_LINE: 0xF6,
+        DRAW_PEN: 0xF7,
+        FILL: 0xF8,
+        SET_PEN: 0xF9,
+        END: 0xFF,
+    },
+});
+
 
 // ══════════════════════════════════════════════════════════════
 //  VGA 256-COLOR PALETTE (procedurally generated)
@@ -142,6 +197,10 @@ class SeededRandom {
 
 // ══════════════════════════════════════════════════════════════
 //  PRIORITY SYSTEM (AGI-inspired, adapted for 200-line VGA)
+//  AGI default: pri = y < 48 ? 4 : min(14, floor((y-48)/12) + 5)
+//  Control priorities 0-3 reserved for block/trigger/water
+//  Depth priorities 4-14 for Y-based sorting
+//  Priority 15 = always-on-top foreground
 // ══════════════════════════════════════════════════════════════
 
 class PrioritySystem {
@@ -151,9 +210,10 @@ class PrioritySystem {
         this.buildTable();
     }
     buildTable() {
+        // AGI default priority formula adapted for VGA 200-line display
         for (let y = 0; y < 200; y++) {
-            if (y < this.base) this.table[y] = 4;
-            else this.table[y] = Math.min(14,
+            if (y < this.base) this.table[y] = AGI.PRI.MIN_DEPTH;
+            else this.table[y] = Math.min(AGI.PRI.MAX_DEPTH,
                 Math.floor((y - this.base) / ((200 - this.base) / 10)) + 5);
         }
     }
@@ -162,7 +222,10 @@ class PrioritySystem {
 
 
 // ══════════════════════════════════════════════════════════════
-//  LFSR DISSOLVE TRANSITION
+//  LFSR DISSOLVE TRANSITION (AGI Amiga-style)
+//  Uses 17-bit LFSR with polynomial 0x3500 (Amiga) to produce
+//  the distinctive Sierra dissolve effect between screens.
+//  Scaled to 640×400 physical pixels via 20-bit extended LFSR.
 // ══════════════════════════════════════════════════════════════
 
 class DissolveTransition {
@@ -217,7 +280,13 @@ class DissolveTransition {
 
 
 // ══════════════════════════════════════════════════════════════
-//  TEXT PARSER (AGI-style word dictionary + said() matching)
+//  TEXT PARSER (AGI WORDS.TOK-style dictionary + said() matching)
+//  Implements AGI parser patterns:
+//    - Word groups: synonyms share the same numeric ID
+//    - Group 0: ignored filler words (articles, prepositions)
+//    - said(v, n): matches verb + noun pattern with group IDs
+//    - Wildcard 9999: matches rest of input (AGI "rest-of-line")
+//    - Unknown word detection: returns first unrecognized word
 // ══════════════════════════════════════════════════════════════
 
 class TextParser {
@@ -241,7 +310,7 @@ class TextParser {
             ['give', 8], ['show', 8], ['hand', 8],
             ['push', 9], ['press', 9],
             ['pull', 10],
-            ['wear', 11], ['put on', 11], ['equip', 11],
+            ['wear', 11], ['put on', 11], ['equip', 11], ['change', 11], ['dress', 11],
             ['drop', 12], ['put', 12],
             ['drive', 13], ['start', 13],
             ['arrest', 14], ['cuff', 14], ['handcuff', 14],
@@ -485,13 +554,18 @@ const Draw = {
         ctx.fillText(str, x * 2, y * 2);
     },
 
-    /** Seeded pseudo-random splatter/brush */
+    /** Seeded pseudo-random splatter/brush (AGI-style LFSR pattern)
+     *  Uses polynomial 0xB8 from AGI brush splatter specification */
     splatter(ctx, cx, cy, size, colorIdx, seed) {
-        const rng = new SeededRandom(seed);
+        // AGI splatter uses an 8-bit LFSR to decide which pixels to plot
+        let lfsr = (seed & 0xFF) || 1;  // Seed the 8-bit LFSR
         ctx.fillStyle = VGA.cssCache[colorIdx];
         for (let py = cy - size; py <= cy + size; py++) {
             for (let px = cx - size; px <= cx + size; px++) {
-                if (rng.next() > 0.5) {
+                // Step the LFSR with AGI polynomial 0xB8
+                const bit = ((lfsr >> 0) ^ (lfsr >> 3) ^ (lfsr >> 4) ^ (lfsr >> 5) ^ (lfsr >> 7)) & 1;
+                lfsr = ((lfsr >> 1) | (bit << 7)) & 0xFF;
+                if (lfsr & 1) {
                     const dx = px - cx, dy = py - cy;
                     if (dx * dx + dy * dy <= size * size) {
                         ctx.fillRect(px * 2, py * 2, 2, 2);
@@ -599,12 +673,22 @@ const Draw = {
         Draw.rect(ctx, x + 1, y, 3, 2, VGA.C.BLACK);
     },
 
-    /** Player character (Detective Mercer) */
-    player(ctx, x, y, direction, frame) {
-        // Direction: 0=down, 1=left, 2=right, 3=up
+    /**
+     * Player character (Detective Mercer)
+     * Uses AGI-style direction-to-loop mapping:
+     *   Loop 0 = facing right, Loop 1 = facing left,
+     *   Loop 2 = facing front/down, Loop 3 = facing back/up
+     * Supports two outfits: plainclothes detective suit and police uniform.
+     */
+    player(ctx, x, y, direction, frame, wearingUniform) {
+        // AGI direction mapping: 0=down(front), 1=left, 2=right, 3=up(back)
         const bobY = Math.sin(frame * 0.3) * 1;
         const armSwing = Math.sin(frame * 0.4) * 2;
         const py = y + bobY;
+
+        // Outfit colors — consistent in all directions
+        const bodyColor = wearingUniform ? VGA.C.UNIFORM_BLUE : VGA.C.DGRAY;
+        const pantsColor = wearingUniform ? VGA.C.UNIFORM_DARK : VGA.C.DGRAY;
 
         // Shadow
         Draw.ellipse(ctx, x, y + 1, 5, 2, VGA.C.BLACK);
@@ -615,32 +699,36 @@ const Draw = {
         Draw.rect(ctx, x - 3, py - 27, 7, 3, VGA.C.HAIR_BROWN);
 
         if (direction === 3) {
-            // Back view
-            Draw.rect(ctx, x - 4, py - 18, 9, 12, VGA.C.UNIFORM_BLUE);
-            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, VGA.C.UNIFORM_BLUE);
-            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, VGA.C.UNIFORM_BLUE);
-        } else {
-            // Body (suit jacket, lighter for detective)
-            Draw.rect(ctx, x - 4, py - 18, 9, 12, VGA.C.DGRAY);
-            // Tie
-            Draw.rect(ctx, x, py - 18, 1, 6, VGA.C.RED);
+            // Back view (AGI Loop 3)
+            Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
             // Arms
-            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, VGA.C.DGRAY);
-            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, VGA.C.DGRAY);
+            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
+            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
+        } else {
+            // Front/side view (AGI Loops 0, 1, 2)
+            Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
+            if (wearingUniform) {
+                // Badge on uniform
+                Draw.pixel(ctx, x - 2, py - 16, VGA.C.BADGE_GOLD);
+            } else {
+                // Tie on detective suit
+                Draw.rect(ctx, x, py - 18, 1, 6, VGA.C.RED);
+            }
+            // Arms
+            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
+            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
             // Hands
             Draw.rect(ctx, x - 6, py - 9 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
             Draw.rect(ctx, x + 5, py - 9 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
-            if (direction !== 3) {
-                // Face (front/side)
-                Draw.pixel(ctx, x - 1, py - 23, VGA.C.BLACK); // eye
-                Draw.pixel(ctx, x + 1, py - 23, VGA.C.BLACK); // eye
-            }
+            // Face (front/side)
+            Draw.pixel(ctx, x - 1, py - 23, VGA.C.BLACK); // eye
+            Draw.pixel(ctx, x + 1, py - 23, VGA.C.BLACK); // eye
         }
 
         // Legs
         const legSwing = Math.sin(frame * 0.4) * 2;
-        Draw.rect(ctx, x - 3, py - 6, 3, 6, VGA.C.DGRAY);
-        Draw.rect(ctx, x + 1, py - 6, 3, 6, VGA.C.DGRAY);
+        Draw.rect(ctx, x - 3, py - 6, 3, 6, pantsColor);
+        Draw.rect(ctx, x + 1, py - 6, 3, 6, pantsColor);
         // Shoes
         Draw.rect(ctx, x - 4 + legSwing * 0.3, py, 3, 2, VGA.C.BLACK);
         Draw.rect(ctx, x + 1 - legSwing * 0.3, py, 3, 2, VGA.C.BLACK);
@@ -1250,7 +1338,8 @@ class GameEngine {
         // Draw player
         if (!room.hidePlayer) {
             Draw.player(this.ctx, this.state.playerX, this.state.playerY,
-                this.state.playerDir, this.state.walking ? this.state.frame : 0);
+                this.state.playerDir, this.state.walking ? this.state.frame : 0,
+                !!this.state.flags.wearingUniform);
         }
 
         // Draw room foreground (things in front of player, based on priority)
