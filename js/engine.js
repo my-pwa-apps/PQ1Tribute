@@ -717,8 +717,10 @@ const Draw = {
     /**
      * Player character (Detective Mercer)
      * Uses AGI-style direction-to-loop mapping:
-     *   Loop 0 = facing right, Loop 1 = facing left,
-     *   Loop 2 = facing front/down, Loop 3 = facing back/up
+     *   0 = facing front/down, 1 = facing left (side profile),
+     *   2 = facing right (side profile), 3 = facing back/up
+     * Each direction has a distinct sprite. Left/right show a narrower
+     * side profile with one eye, nose, and proper arm/leg layering.
      * Supports two outfits: plainclothes detective suit and police uniform.
      */
     player(ctx, x, y, direction, frame, wearingUniform) {
@@ -735,142 +737,232 @@ const Draw = {
         // Shadow
         Draw.ellipse(ctx, x, y + 1, 6, 2, VGA.C.BLACK);
 
-        // Head
-        Draw.ellipse(ctx, x, py - 22, 3, 4, VGA.C.SKIN_LIGHT);
-        // Ears
-        Draw.pixel(ctx, x - 3, py - 22, VGA.C.SKIN_LIGHT);
-        Draw.pixel(ctx, x + 3, py - 22, VGA.C.SKIN_LIGHT);
-        // Hair (shaped)
-        Draw.rect(ctx, x - 3, py - 27, 7, 3, VGA.C.HAIR_BROWN);
-        Draw.pixel(ctx, x - 3, py - 25, VGA.C.HAIR_BROWN); // sideburn L
-        Draw.pixel(ctx, x + 3, py - 25, VGA.C.HAIR_BROWN); // sideburn R
+        const isSide = (direction === 1 || direction === 2);
+        // flip: +1 = facing right, -1 = facing left
+        const f = (direction === 1) ? -1 : 1;
 
-        if (direction === 3) {
-            // ── Back view (AGI Loop 3) ──
-            Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
-            // Collar (back)
-            Draw.rect(ctx, x - 2, py - 19, 5, 2, darkBody);
-            if (wearingUniform) {
-                // Shoulder seam / epaulette tabs
-                Draw.pixel(ctx, x - 4, py - 17, VGA.C.BADGE_GOLD);
-                Draw.pixel(ctx, x + 4, py - 17, VGA.C.BADGE_GOLD);
-                // Back center seam
-                Draw.rect(ctx, x, py - 16, 1, 9, darkBody);
-                // Belt (duty belt with equipment)
-                Draw.rect(ctx, x - 5, py - 7, 11, 2, VGA.C.BLACK);
-                Draw.pixel(ctx, x - 3, py - 7, VGA.C.METAL_GRAY); // radio clip
-                Draw.pixel(ctx, x + 3, py - 7, VGA.C.METAL_GRAY); // cuff case
-                Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);     // buckle
-            } else {
-                // Jacket back seam
-                Draw.rect(ctx, x, py - 16, 1, 9, darkBody);
-                // Belt
-                Draw.rect(ctx, x - 4, py - 7, 9, 1, VGA.C.BLACK);
-            }
-            // Arms
-            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
-            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
-            // Hands
-            Draw.rect(ctx, x - 6, py - 9 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
-            Draw.rect(ctx, x + 5, py - 9 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
-        } else {
-            // ── Front/side view (AGI Loops 0, 1, 2) ──
-            Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
+        if (isSide) {
+            // ═══════════════════════════════════════
+            //  SIDE VIEW (AGI Loop 1=left, Loop 2=right)
+            // ═══════════════════════════════════════
+
+            // Head (profile — slightly narrower)
+            Draw.ellipse(ctx, x, py - 22, 3, 4, VGA.C.SKIN_LIGHT);
+            // Ear (only the far-side ear visible)
+            Draw.pixel(ctx, x - f * 3, py - 22, VGA.C.SKIN_LIGHT);
+            // Hair
+            Draw.rect(ctx, x - 3, py - 27, 7, 3, VGA.C.HAIR_BROWN);
+            Draw.pixel(ctx, x - f * 3, py - 25, VGA.C.HAIR_BROWN); // sideburn
+            // Eye (one eye, on the facing side)
+            Draw.pixel(ctx, x + f * 1, py - 23, VGA.C.BLACK);
+            // Nose bump
+            Draw.pixel(ctx, x + f * 3, py - 22, VGA.C.SKIN_LIGHT);
+            Draw.pixel(ctx, x + f * 3, py - 21, VGA.C.SKIN_LIGHT);
+            // Mouth
+            Draw.pixel(ctx, x + f * 1, py - 21, VGA.nearest(190, 140, 110));
+
+            // Body (narrower profile — 6px wide instead of 9)
+            Draw.rect(ctx, x - 3, py - 18, 7, 12, bodyColor);
 
             if (wearingUniform) {
                 // Collar
-                Draw.pixel(ctx, x - 2, py - 19, darkBody);
-                Draw.pixel(ctx, x - 1, py - 19, darkBody);
-                Draw.pixel(ctx, x + 1, py - 19, darkBody);
-                Draw.pixel(ctx, x + 2, py - 19, darkBody);
-                // Undershirt showing at collar
-                Draw.pixel(ctx, x, py - 19, VGA.C.WHITE);
-
-                // Badge (star shape approximated)
-                Draw.pixel(ctx, x - 2, py - 16, VGA.C.BADGE_GOLD);
-                Draw.pixel(ctx, x - 3, py - 15, VGA.C.BADGE_GOLD);
-                Draw.pixel(ctx, x - 2, py - 15, VGA.C.BADGE_GOLD);
-                Draw.pixel(ctx, x - 1, py - 15, VGA.C.BADGE_GOLD);
-
-                // Shoulder patches / epaulettes
-                Draw.pixel(ctx, x - 4, py - 17, VGA.C.BADGE_GOLD);
-                Draw.pixel(ctx, x + 4, py - 17, VGA.C.BADGE_GOLD);
-
-                // Shirt buttons center line
-                Draw.pixel(ctx, x, py - 16, darkBody);
-                Draw.pixel(ctx, x, py - 13, darkBody);
-                Draw.pixel(ctx, x, py - 10, darkBody);
-
-                // Pocket flaps
-                Draw.rect(ctx, x - 3, py - 13, 3, 1, darkBody);
-                Draw.rect(ctx, x + 1, py - 13, 3, 1, darkBody);
-                // Pocket outlines
-                Draw.rect(ctx, x - 3, py - 12, 3, 3, darkBody);
-                Draw.rect(ctx, x + 1, py - 12, 3, 3, darkBody);
-
-                // Name tag (right chest)
-                Draw.rect(ctx, x + 1, py - 16, 3, 1, VGA.C.WHITE);
-
-                // Duty belt (detailed)
-                Draw.rect(ctx, x - 5, py - 7, 11, 2, VGA.C.BLACK);
-                Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);      // buckle
-                Draw.pixel(ctx, x - 3, py - 6, VGA.C.METAL_GRAY);  // radio holder
-                Draw.pixel(ctx, x + 3, py - 6, VGA.C.METAL_GRAY);  // cuff case
-                Draw.pixel(ctx, x - 4, py - 6, VGA.C.DGRAY);       // holster
+                Draw.rect(ctx, x - 2, py - 19, 5, 2, darkBody);
+                Draw.pixel(ctx, x, py - 19, VGA.C.WHITE); // undershirt peek
+                // Shoulder patch (near side)
+                Draw.pixel(ctx, x + f * 3, py - 17, VGA.C.BADGE_GOLD);
+                // Badge (facing side)
+                Draw.pixel(ctx, x + f * 1, py - 16, VGA.C.BADGE_GOLD);
+                Draw.pixel(ctx, x + f * 1, py - 15, VGA.C.BADGE_GOLD);
+                Draw.pixel(ctx, x + f * 2, py - 15, VGA.C.BADGE_GOLD);
+                // Pocket flap (visible side)
+                Draw.rect(ctx, x + f * 0, py - 13, 3, 1, darkBody);
+                // Button line (side angle — offset toward viewer)
+                Draw.pixel(ctx, x + f * 1, py - 16, darkBody);
+                Draw.pixel(ctx, x + f * 1, py - 13, darkBody);
+                Draw.pixel(ctx, x + f * 1, py - 10, darkBody);
+                // Duty belt
+                Draw.rect(ctx, x - 4, py - 7, 9, 2, VGA.C.BLACK);
+                Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);           // buckle
+                Draw.pixel(ctx, x + f * 3, py - 6, VGA.C.METAL_GRAY);   // holster/radio
+                Draw.pixel(ctx, x - f * 2, py - 6, VGA.C.METAL_GRAY);   // cuff case
             } else {
-                // Detective suit — jacket with lapels over white shirt
-                // Shirt under jacket
-                Draw.rect(ctx, x - 1, py - 18, 3, 8, VGA.C.WHITE);
-                // Lapels (V shape)
-                Draw.pixel(ctx, x - 2, py - 18, darkBody);
-                Draw.pixel(ctx, x - 1, py - 17, darkBody);
-                Draw.pixel(ctx, x + 2, py - 18, darkBody);
-                Draw.pixel(ctx, x + 1, py - 17, darkBody);
-                // Tie
-                Draw.pixel(ctx, x, py - 18, VGA.C.RED);
-                Draw.pixel(ctx, x, py - 17, VGA.C.RED);
-                Draw.pixel(ctx, x, py - 16, VGA.C.RED);
-                Draw.pixel(ctx, x, py - 15, VGA.C.RED);
-                Draw.pixel(ctx, x, py - 14, VGA.C.RED);
-                Draw.pixel(ctx, x - 1, py - 14, VGA.C.RED); // tie knot wider
-                Draw.pixel(ctx, x + 1, py - 14, VGA.C.RED);
-                // Jacket pocket hint
-                Draw.rect(ctx, x + 1, py - 12, 3, 1, darkBody);
-                // Belt and buckle
-                Draw.rect(ctx, x - 4, py - 7, 9, 1, VGA.C.BLACK);
+                // Detective suit side view
+                // Jacket edge / lapel
+                Draw.rect(ctx, x + f * 0, py - 18, 2, 7, VGA.C.WHITE); // shirt sliver
+                Draw.pixel(ctx, x + f * 1, py - 18, darkBody); // lapel fold
+                Draw.pixel(ctx, x + f * 1, py - 17, darkBody);
+                // Tie (peeking out)
+                Draw.pixel(ctx, x + f * 0, py - 17, VGA.C.RED);
+                Draw.pixel(ctx, x + f * 0, py - 16, VGA.C.RED);
+                Draw.pixel(ctx, x + f * 0, py - 15, VGA.C.RED);
+                // Belt
+                Draw.rect(ctx, x - 3, py - 7, 7, 1, VGA.C.BLACK);
                 Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);
-                // Holster bulge (under jacket)
-                Draw.pixel(ctx, x - 4, py - 10, darkBody);
+                // Holster bulge (hip, facing side)
+                Draw.pixel(ctx, x - f * 3, py - 10, darkBody);
             }
 
-            // Arms
-            Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
-            Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
-            // Cuffs / sleeve ends
-            Draw.pixel(ctx, x - 6, py - 9 + armSwing, darkBody);
-            Draw.pixel(ctx, x + 5, py - 9 - armSwing, darkBody);
-            // Hands
-            Draw.rect(ctx, x - 6, py - 8 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
-            Draw.rect(ctx, x + 5, py - 8 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
-            // Face (front/side)
-            Draw.pixel(ctx, x - 1, py - 23, VGA.C.BLACK); // eye
-            Draw.pixel(ctx, x + 1, py - 23, VGA.C.BLACK); // eye
-            // Mouth hint
-            Draw.pixel(ctx, x, py - 21, VGA.nearest(190, 140, 110));
-        }
+            // Far arm (behind body) — drawn first so body overlaps it
+            Draw.rect(ctx, x - f * 3, py - 17 - armSwing, 2, 8, bodyColor);
+            Draw.rect(ctx, x - f * 3, py - 9 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
+            // Near arm (in front of body)
+            Draw.rect(ctx, x + f * 2, py - 17 + armSwing, 2, 8, bodyColor);
+            Draw.pixel(ctx, x + f * 2, py - 9 + armSwing, darkBody); // cuff
+            Draw.rect(ctx, x + f * 2, py - 8 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
 
-        // Legs (with crease detail)
-        const legSwing = Math.sin(frame * 0.4) * 2;
-        Draw.rect(ctx, x - 3, py - 5, 3, 6, pantsColor);
-        Draw.rect(ctx, x + 1, py - 5, 3, 6, pantsColor);
-        // Trouser crease
-        Draw.rect(ctx, x - 2, py - 4, 1, 4, darkBody);
-        Draw.rect(ctx, x + 2, py - 4, 1, 4, darkBody);
-        // Shoes (with shine)
-        Draw.rect(ctx, x - 4 + legSwing * 0.3, py + 1, 4, 2, VGA.C.BLACK);
-        Draw.rect(ctx, x + 1 - legSwing * 0.3, py + 1, 4, 2, VGA.C.BLACK);
-        Draw.pixel(ctx, x - 3 + legSwing * 0.3, py + 1, VGA.C.DGRAY); // shine
-        Draw.pixel(ctx, x + 2 - legSwing * 0.3, py + 1, VGA.C.DGRAY);
+            // Legs — stride animation (one forward, one back)
+            const stride = Math.sin(frame * 0.4) * 3;
+            // Far leg (behind)
+            Draw.rect(ctx, x - 1 - f * stride * 0.3, py - 5, 3, 6, pantsColor);
+            // Near leg (in front)
+            Draw.rect(ctx, x + f * stride * 0.3, py - 5, 3, 6, pantsColor);
+            // Trouser crease on near leg
+            Draw.rect(ctx, x + 1 + f * stride * 0.3, py - 4, 1, 4, darkBody);
+            // Shoes
+            Draw.rect(ctx, x - 2 - f * stride * 0.3, py + 1, 4, 2, VGA.C.BLACK);
+            Draw.rect(ctx, x - 1 + f * stride * 0.3, py + 1, 4, 2, VGA.C.BLACK);
+            Draw.pixel(ctx, x - 1 - f * stride * 0.3, py + 1, VGA.C.DGRAY); // shine
+
+        } else {
+            // Head (front/back share common head)
+            Draw.ellipse(ctx, x, py - 22, 3, 4, VGA.C.SKIN_LIGHT);
+            Draw.pixel(ctx, x - 3, py - 22, VGA.C.SKIN_LIGHT); // ear L
+            Draw.pixel(ctx, x + 3, py - 22, VGA.C.SKIN_LIGHT); // ear R
+            Draw.rect(ctx, x - 3, py - 27, 7, 3, VGA.C.HAIR_BROWN);
+            Draw.pixel(ctx, x - 3, py - 25, VGA.C.HAIR_BROWN); // sideburn L
+            Draw.pixel(ctx, x + 3, py - 25, VGA.C.HAIR_BROWN); // sideburn R
+
+            if (direction === 3) {
+                // ═══════════════════════════════════════
+                //  BACK VIEW (AGI Loop 3)
+                // ═══════════════════════════════════════
+                Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
+                // Collar (back)
+                Draw.rect(ctx, x - 2, py - 19, 5, 2, darkBody);
+                if (wearingUniform) {
+                    // Shoulder seam / epaulette tabs
+                    Draw.pixel(ctx, x - 4, py - 17, VGA.C.BADGE_GOLD);
+                    Draw.pixel(ctx, x + 4, py - 17, VGA.C.BADGE_GOLD);
+                    // Back center seam
+                    Draw.rect(ctx, x, py - 16, 1, 9, darkBody);
+                    // Belt (duty belt with equipment)
+                    Draw.rect(ctx, x - 5, py - 7, 11, 2, VGA.C.BLACK);
+                    Draw.pixel(ctx, x - 3, py - 7, VGA.C.METAL_GRAY); // radio clip
+                    Draw.pixel(ctx, x + 3, py - 7, VGA.C.METAL_GRAY); // cuff case
+                    Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);     // buckle
+                } else {
+                    // Jacket back seam
+                    Draw.rect(ctx, x, py - 16, 1, 9, darkBody);
+                    // Belt
+                    Draw.rect(ctx, x - 4, py - 7, 9, 1, VGA.C.BLACK);
+                }
+                // Arms
+                Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
+                Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
+                // Hands
+                Draw.rect(ctx, x - 6, py - 9 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
+                Draw.rect(ctx, x + 5, py - 9 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
+            } else {
+                // ═══════════════════════════════════════
+                //  FRONT VIEW (AGI Loop 0)
+                // ═══════════════════════════════════════
+                Draw.rect(ctx, x - 4, py - 18, 9, 12, bodyColor);
+
+                if (wearingUniform) {
+                    // Collar
+                    Draw.pixel(ctx, x - 2, py - 19, darkBody);
+                    Draw.pixel(ctx, x - 1, py - 19, darkBody);
+                    Draw.pixel(ctx, x + 1, py - 19, darkBody);
+                    Draw.pixel(ctx, x + 2, py - 19, darkBody);
+                    // Undershirt showing at collar
+                    Draw.pixel(ctx, x, py - 19, VGA.C.WHITE);
+
+                    // Badge (star shape approximated)
+                    Draw.pixel(ctx, x - 2, py - 16, VGA.C.BADGE_GOLD);
+                    Draw.pixel(ctx, x - 3, py - 15, VGA.C.BADGE_GOLD);
+                    Draw.pixel(ctx, x - 2, py - 15, VGA.C.BADGE_GOLD);
+                    Draw.pixel(ctx, x - 1, py - 15, VGA.C.BADGE_GOLD);
+
+                    // Shoulder patches / epaulettes
+                    Draw.pixel(ctx, x - 4, py - 17, VGA.C.BADGE_GOLD);
+                    Draw.pixel(ctx, x + 4, py - 17, VGA.C.BADGE_GOLD);
+
+                    // Shirt buttons center line
+                    Draw.pixel(ctx, x, py - 16, darkBody);
+                    Draw.pixel(ctx, x, py - 13, darkBody);
+                    Draw.pixel(ctx, x, py - 10, darkBody);
+
+                    // Pocket flaps
+                    Draw.rect(ctx, x - 3, py - 13, 3, 1, darkBody);
+                    Draw.rect(ctx, x + 1, py - 13, 3, 1, darkBody);
+                    // Pocket outlines
+                    Draw.rect(ctx, x - 3, py - 12, 3, 3, darkBody);
+                    Draw.rect(ctx, x + 1, py - 12, 3, 3, darkBody);
+
+                    // Name tag (right chest)
+                    Draw.rect(ctx, x + 1, py - 16, 3, 1, VGA.C.WHITE);
+
+                    // Duty belt (detailed)
+                    Draw.rect(ctx, x - 5, py - 7, 11, 2, VGA.C.BLACK);
+                    Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);      // buckle
+                    Draw.pixel(ctx, x - 3, py - 6, VGA.C.METAL_GRAY);  // radio holder
+                    Draw.pixel(ctx, x + 3, py - 6, VGA.C.METAL_GRAY);  // cuff case
+                    Draw.pixel(ctx, x - 4, py - 6, VGA.C.DGRAY);       // holster
+                } else {
+                    // Detective suit — jacket with lapels over white shirt
+                    // Shirt under jacket
+                    Draw.rect(ctx, x - 1, py - 18, 3, 8, VGA.C.WHITE);
+                    // Lapels (V shape)
+                    Draw.pixel(ctx, x - 2, py - 18, darkBody);
+                    Draw.pixel(ctx, x - 1, py - 17, darkBody);
+                    Draw.pixel(ctx, x + 2, py - 18, darkBody);
+                    Draw.pixel(ctx, x + 1, py - 17, darkBody);
+                    // Tie
+                    Draw.pixel(ctx, x, py - 18, VGA.C.RED);
+                    Draw.pixel(ctx, x, py - 17, VGA.C.RED);
+                    Draw.pixel(ctx, x, py - 16, VGA.C.RED);
+                    Draw.pixel(ctx, x, py - 15, VGA.C.RED);
+                    Draw.pixel(ctx, x, py - 14, VGA.C.RED);
+                    Draw.pixel(ctx, x - 1, py - 14, VGA.C.RED); // tie knot wider
+                    Draw.pixel(ctx, x + 1, py - 14, VGA.C.RED);
+                    // Jacket pocket hint
+                    Draw.rect(ctx, x + 1, py - 12, 3, 1, darkBody);
+                    // Belt and buckle
+                    Draw.rect(ctx, x - 4, py - 7, 9, 1, VGA.C.BLACK);
+                    Draw.pixel(ctx, x, py - 7, VGA.C.METAL_GRAY);
+                    // Holster bulge (under jacket)
+                    Draw.pixel(ctx, x - 4, py - 10, darkBody);
+                }
+
+                // Arms
+                Draw.rect(ctx, x - 6, py - 17 + armSwing, 2, 8, bodyColor);
+                Draw.rect(ctx, x + 5, py - 17 - armSwing, 2, 8, bodyColor);
+                // Cuffs / sleeve ends
+                Draw.pixel(ctx, x - 6, py - 9 + armSwing, darkBody);
+                Draw.pixel(ctx, x + 5, py - 9 - armSwing, darkBody);
+                // Hands
+                Draw.rect(ctx, x - 6, py - 8 + armSwing, 2, 2, VGA.C.SKIN_LIGHT);
+                Draw.rect(ctx, x + 5, py - 8 - armSwing, 2, 2, VGA.C.SKIN_LIGHT);
+                // Face (front)
+                Draw.pixel(ctx, x - 1, py - 23, VGA.C.BLACK); // eye
+                Draw.pixel(ctx, x + 1, py - 23, VGA.C.BLACK); // eye
+                // Mouth hint
+                Draw.pixel(ctx, x, py - 21, VGA.nearest(190, 140, 110));
+            }
+
+            // Legs (with crease detail)
+            const legSwing = Math.sin(frame * 0.4) * 2;
+            Draw.rect(ctx, x - 3, py - 5, 3, 6, pantsColor);
+            Draw.rect(ctx, x + 1, py - 5, 3, 6, pantsColor);
+            // Trouser crease
+            Draw.rect(ctx, x - 2, py - 4, 1, 4, darkBody);
+            Draw.rect(ctx, x + 2, py - 4, 1, 4, darkBody);
+            // Shoes (with shine)
+            Draw.rect(ctx, x - 4 + legSwing * 0.3, py + 1, 4, 2, VGA.C.BLACK);
+            Draw.rect(ctx, x + 1 - legSwing * 0.3, py + 1, 4, 2, VGA.C.BLACK);
+            Draw.pixel(ctx, x - 3 + legSwing * 0.3, py + 1, VGA.C.DGRAY); // shine
+            Draw.pixel(ctx, x + 2 - legSwing * 0.3, py + 1, VGA.C.DGRAY);
+        }
     }
 };
 
