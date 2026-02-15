@@ -22,6 +22,7 @@ body {
     flex-direction: column;
     align-items: center;
     image-rendering: pixelated;
+    image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     /* CRT scanline effect via box-shadow */
     filter: contrast(1.05) brightness(1.02);
@@ -48,6 +49,7 @@ body {
     display: block;
     cursor: crosshair;
     image-rendering: pixelated;
+    image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     border-left: 2px solid #222244;
     border-right: 2px solid #222244;
@@ -110,7 +112,7 @@ body {
 }
 
 #parser-input-container {
-    display: flex;
+    display: none;
     align-items: center;
     margin-top: 4px;
 }
@@ -226,6 +228,13 @@ body {
 
 .dialog-box .dialog-text {
     margin-bottom: 12px;
+    white-space: pre-line;
+    text-align: left;
+}
+
+.dialog-box .dialog-text em {
+    font-style: italic;
+    color: #b0b0d0;
 }
 
 .dialog-box .dialog-continue {

@@ -92,13 +92,33 @@ const VGA = (() => {
         LAMP_YELLOW: nearest(255, 230, 120),
     };
 
-    /** Convert a palette index to a CSS rgb string */
+    // Pre-compute CSS strings for all 256 palette entries (avoids per-draw allocation)
+    const cssCache = palette.map(c => `rgb(${c[0]},${c[1]},${c[2]})`);
+
+    /** Convert a palette index to a CSS rgb string (cached) */
     function toCSS(idx) {
-        const c = palette[idx];
-        return `rgb(${c[0]},${c[1]},${c[2]})`;
+        return cssCache[idx];
     }
 
-    return { palette, nearest, C, toCSS };
+    // LRU cache for nearest-color lookups (key: r<<16|g<<8|b)
+    const nearestCache = new Map();
+    const NEAREST_CACHE_MAX = 512;
+    const _nearestUncached = nearest;
+
+    function nearestCached(r, g, b) {
+        const key = (r << 16) | (g << 8) | b;
+        let result = nearestCache.get(key);
+        if (result !== undefined) return result;
+        result = _nearestUncached(r, g, b);
+        if (nearestCache.size >= NEAREST_CACHE_MAX) {
+            // Evict oldest entry
+            nearestCache.delete(nearestCache.keys().next().value);
+        }
+        nearestCache.set(key, result);
+        return result;
+    }
+
+    return { palette, nearest: nearestCached, C, toCSS, cssCache };
 })();
 
 
@@ -273,6 +293,13 @@ class TextParser {
             ['witness', 80],
             ['victim', 81],
             ['body', 82],
+            ['trash', 83], ['garbage', 83], ['can', 83],
+            ['bench', 84],
+            ['receipt', 85],
+            ['note', 86], ['ransom', 86],
+            ['van', 87],
+            ['rope', 88], ['ropes', 88],
+            ['chair', 89],
 
             // Nouns — Locations
             ['north', 90], ['south', 91], ['east', 92], ['west', 93],
@@ -309,12 +336,19 @@ class TextParser {
             ['detective', 128],
             ['officer', 129],
             ['criminal', 130], ['crook', 130], ['thief', 130],
+            ['lily', 81], ['sandra', 80],
+            ['rosie', 124],
+            ['torres', 122],
+            ['vasquez', 130],
+            ['swat', 131],
+            ['back', 132], ['here', 132],
 
             // Ignored words (group 0)
             ['the', 0], ['a', 0], ['an', 0], ['to', 0], ['at', 0],
             ['in', 0], ['on', 0], ['with', 0], ['my', 0], ['of', 0],
             ['up', 0], ['around', 0], ['for', 0], ['from', 0], ['about', 0],
             ['into', 0], ['it', 0], ['this', 0], ['that', 0], ['is', 0],
+            ['please', 0], ['just', 0], ['then', 0], ['some', 0],
         ];
 
         for (const [word, groupId] of words) {
@@ -342,14 +376,16 @@ class TextParser {
         return { ok: true, words: this.lastParsed, unknown: null };
     }
 
-    /** Check if parsed input matches expected group IDs */
+    /** Check if parsed input matches expected group IDs.
+     *  Use 9999 to match rest of input (any remaining words).
+     *  Group 0 words (articles) are already stripped by parse().
+     */
     said(...expectedGids) {
         if (this.lastParsed.length === 0) return false;
         for (let i = 0; i < expectedGids.length; i++) {
             const exp = expectedGids[i];
-            if (exp === 9999) return true;
+            if (exp === 9999) return true; // rest-match: accept anything remaining
             if (i >= this.lastParsed.length) return false;
-            if (exp === 1) continue; // wildcard — any word
             if (this.lastParsed[i].gid !== exp) return false;
         }
         return true;
@@ -379,22 +415,19 @@ class TextParser {
 const Draw = {
     /** Fill rectangle with VGA palette index */
     rect(ctx, x, y, w, h, colorIdx) {
-        const c = VGA.palette[colorIdx];
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = VGA.cssCache[colorIdx];
         ctx.fillRect(x * 2, y * 2, w * 2, h * 2);
     },
 
     /** Single pixel (doubled for VGA 320→640) */
     pixel(ctx, x, y, colorIdx) {
-        const c = VGA.palette[colorIdx];
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = VGA.cssCache[colorIdx];
         ctx.fillRect(x * 2, y * 2, 2, 2);
     },
 
     /** Line (Bresenham) */
     line(ctx, x1, y1, x2, y2, colorIdx) {
-        const c = VGA.palette[colorIdx];
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = VGA.cssCache[colorIdx];
         let dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
         let sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
         let err = dx - dy;
@@ -409,11 +442,10 @@ const Draw = {
 
     /** VGA dither pattern (checkerboard of two colors) */
     dither(ctx, x, y, w, h, c1, c2) {
-        const rgb1 = VGA.palette[c1], rgb2 = VGA.palette[c2];
+        const css1 = VGA.cssCache[c1], css2 = VGA.cssCache[c2];
         for (let py = y; py < y + h; py++) {
             for (let px = x; px < x + w; px++) {
-                const c = ((px + py) & 1) ? rgb2 : rgb1;
-                ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                ctx.fillStyle = ((px + py) & 1) ? css2 : css1;
                 ctx.fillRect(px * 2, py * 2, 2, 2);
             }
         }
@@ -422,8 +454,9 @@ const Draw = {
     /** Gradient fill (vertical, approximate with VGA colors) */
     gradient(ctx, x, y, w, h, topColor, botColor) {
         const t = VGA.palette[topColor], b = VGA.palette[botColor];
+        const hm1 = Math.max(1, h - 1);
         for (let row = 0; row < h; row++) {
-            const f = row / Math.max(1, h - 1);
+            const f = row / hm1;
             const r = Math.round(t[0] + (b[0] - t[0]) * f);
             const g = Math.round(t[1] + (b[1] - t[1]) * f);
             const bl = Math.round(t[2] + (b[2] - t[2]) * f);
@@ -434,10 +467,10 @@ const Draw = {
 
     /** Ellipse */
     ellipse(ctx, cx, cy, rx, ry, colorIdx, filled = true) {
-        const c = VGA.palette[colorIdx];
+        const css = VGA.cssCache[colorIdx];
         ctx.save();
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
-        ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = css;
+        ctx.strokeStyle = css;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.ellipse(cx * 2, cy * 2, rx * 2, ry * 2, 0, 0, Math.PI * 2);
@@ -447,8 +480,7 @@ const Draw = {
 
     /** Text in VGA style */
     text(ctx, str, x, y, colorIdx, size = 8) {
-        const c = VGA.palette[colorIdx];
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = VGA.cssCache[colorIdx];
         ctx.font = `${size * 2}px monospace`;
         ctx.fillText(str, x * 2, y * 2);
     },
@@ -456,8 +488,7 @@ const Draw = {
     /** Seeded pseudo-random splatter/brush */
     splatter(ctx, cx, cy, size, colorIdx, seed) {
         const rng = new SeededRandom(seed);
-        const c = VGA.palette[colorIdx];
-        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        ctx.fillStyle = VGA.cssCache[colorIdx];
         for (let py = cy - size; py <= cy + size; py++) {
             for (let px = cx - size; px <= cx + size; px++) {
                 if (rng.next() > 0.5) {
@@ -652,14 +683,15 @@ class GameEngine {
             walkSpeed: 1.5,
             frame: 0,
             parserActive: false,
-            messageQueue: [],
-            currentMessage: null,
             messageTimer: 0,
             dead: false,
             won: false,
             dialogCallback: null,
             gameStarted: false,
         };
+
+        // Snapshot for restart
+        this._initialState = null;
 
         // Systems
         this.parser = new TextParser();
@@ -691,6 +723,30 @@ class GameEngine {
             const x = Math.floor(sx / this.SCALE);
             const y = Math.floor(sy / this.SCALE);
             this._handleClick(x, y);
+        });
+
+        // Canvas hover — change cursor over hotspots and show name
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const sx = (e.clientX - rect.left) / rect.width * this.canvas.width;
+            const sy = (e.clientY - rect.top) / rect.height * this.canvas.height;
+            const x = Math.floor(sx / this.SCALE);
+            const y = Math.floor(sy / this.SCALE);
+            const hit = this._hitTestHotspots(x, y);
+            this.canvas.style.cursor = hit ? 'pointer' : 'crosshair';
+            // Show verb + target in message area (only if no timer message)
+            if (!this.state.messageTimer) {
+                if (hit) {
+                    const verb = this.state.verb;
+                    const itemName = this.state.selectedItem
+                        ? (this.state.inventory.find(i => i.id === this.state.selectedItem)?.name || '')
+                        : '';
+                    const action = itemName ? `${verb} ${itemName} on ${hit.name}` : `${verb} ${hit.name}`;
+                    this.messageEl.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                } else {
+                    this.messageEl.textContent = '';
+                }
+            }
         });
 
         // Verb buttons
@@ -760,6 +816,22 @@ class GameEngine {
             case '6': this._selectVerb('open'); break;
             case '7': this._selectVerb('close'); break;
             case 'i': case 'I': this.showInventory(); break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this._startWalk(this.state.playerX, this.state.playerY - 30);
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                this._startWalk(this.state.playerX, this.state.playerY + 30);
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                this._startWalk(this.state.playerX - 30, this.state.playerY);
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                this._startWalk(this.state.playerX + 30, this.state.playerY);
+                break;
             case 'Escape':
                 this._closeOverlays();
                 break;
@@ -1018,11 +1090,17 @@ class GameEngine {
 
     showDialog(speaker, text, callback) {
         this._closeOverlays();
+        // Convert markdown-style formatting to HTML
+        const htmlText = text
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, '<br>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>');
         const overlay = document.createElement('div');
         overlay.className = 'dialog-overlay';
         overlay.innerHTML = `<div class="dialog-box">
             ${speaker ? `<div class="speaker">${speaker}</div>` : ''}
-            <div class="dialog-text">${text}</div>
+            <div class="dialog-text">${htmlText}</div>
             <div class="dialog-continue">Press ENTER or click to continue</div>
         </div>`;
         this.state.dialogCallback = callback || null;
@@ -1039,10 +1117,6 @@ class GameEngine {
                 this.state.dialogCallback = null;
                 cb();
             }
-        }
-        // Also clear messages
-        if (this.state.currentMessage) {
-            this.state.currentMessage = null;
         }
     }
 
@@ -1066,15 +1140,29 @@ class GameEngine {
     }
 
     _restart() {
-        // Quick restart — reload state to beginning of current room's "safe" point
-        this.state.dead = false;
-        this.state.walking = false;
-        // Reload the room
+        // Full restart — reload entire game state from snapshot
+        if (this._initialState) {
+            const saved = JSON.parse(this._initialState);
+            Object.assign(this.state, saved);
+            this.state.inventory = saved.inventory.map(i => ({ ...i }));
+            this.state.flags = { ...saved.flags };
+            this.state.variables = { ...saved.variables };
+        } else {
+            // Fallback: just reset death and reposition
+            this.state.dead = false;
+            this.state.walking = false;
+        }
         const room = this.rooms[this.state.room];
         if (room && room.safeSpawn) {
             this.state.playerX = room.safeSpawn[0];
             this.state.playerY = room.safeSpawn[1];
         }
+        this.state.dead = false;
+        this.state.won = false;
+        this.state.walking = false;
+        this._updateScore();
+        this.messageEl.textContent = '';
+        if (room) this.roomNameEl.textContent = room.name || this.state.room;
     }
 
     // ── Text Parser ──
@@ -1105,6 +1193,19 @@ class GameEngine {
         if (this.parser.said(27)) { this.showInventory(); return; } // inventory
         if (this.parser.said(28)) { this.showMessage("Type commands like: look desk, get gun, talk captain, open door, use key on door"); return; }
         if (this.parser.said(26)) { this.showMessage("Game saved... just kidding. This is a browser game!"); return; }
+
+        // Bare "look" — describe current room
+        if (this.parser.verb() === 1 && this.parser.noun() === null) {
+            const room = this.rooms[this.state.room];
+            if (room) {
+                const items = (room.hotspots || []).map(h => h.name).filter(Boolean);
+                const desc = items.length > 0
+                    ? `You are in: ${room.name}. You can see: ${items.join(', ')}.`
+                    : `You are in: ${room.name}.`;
+                this.showMessage(desc, 6000);
+            }
+            return;
+        }
 
         // Delegate to current room handler
         const room = this.rooms[this.state.room];
@@ -1164,6 +1265,20 @@ class GameEngine {
         if (initialRoom) this.state.room = initialRoom;
         this.state.gameStarted = true;
         this._updateScore();
+
+        // Save initial state snapshot for restart
+        this._initialState = JSON.stringify({
+            room: this.state.room,
+            score: this.state.score,
+            inventory: [],
+            flags: {},
+            variables: {},
+            playerX: this.state.playerX,
+            playerY: this.state.playerY,
+            playerDir: this.state.playerDir,
+            verb: 'walk',
+            selectedItem: null,
+        });
 
         // Enter initial room
         const room = this.rooms[this.state.room];

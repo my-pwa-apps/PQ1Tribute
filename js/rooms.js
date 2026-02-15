@@ -412,8 +412,6 @@ function registerAllRooms(engine) {
             }
             return false;
         },
-
-        onEnter(g) {}
     });
 
 
@@ -866,8 +864,6 @@ function registerAllRooms(engine) {
             }
             return false;
         },
-
-        onEnter(g) {}
     });
 
 
@@ -1686,7 +1682,7 @@ function registerAllRooms(engine) {
                 }
                 return true;
             }
-            if (p.said(1, 9999) && p.has(66)) { // look trash/evidence
+            if ((p.said(1, 66) || p.has(66)) && p.verb() === 1) { // look trash/evidence
                 this.onInteract(g, 'look', 'trashcan');
                 return true;
             }
@@ -2116,6 +2112,7 @@ function registerAllRooms(engine) {
                                     () => {
                                         g.changeRoom('captainOffice', 160, 150, 3);
                                         g.setFlag('gameWon', true);
+                                        g.state.won = true;
                                     });
                             });
                         return true;
@@ -2193,28 +2190,20 @@ function registerAllRooms(engine) {
     // ══════════════════════════════════════════════
     // HELPER: Draw a simple car
     // ══════════════════════════════════════════════
-}
-
-function drawCar(ctx, x, y, bodyColor, accentColor, hasLightbar) {
-    // Car body
-    Draw.rect(ctx, x, y, 50, 16, bodyColor);
-    // Roof
-    Draw.rect(ctx, x + 10, y - 8, 25, 10, bodyColor);
-    // Windshields
-    Draw.rect(ctx, x + 11, y - 7, 10, 8, VGA.C.WINDOW_CYAN);
-    Draw.rect(ctx, x + 24, y - 7, 10, 8, VGA.C.WINDOW_CYAN);
-    // Wheels
-    Draw.ellipse(ctx, x + 10, y + 16, 5, 3, VGA.C.BLACK);
-    Draw.ellipse(ctx, x + 40, y + 16, 5, 3, VGA.C.BLACK);
-    // Accent stripe
-    Draw.rect(ctx, x, y + 6, 50, 2, accentColor);
-    // Headlights
-    Draw.rect(ctx, x + 48, y + 2, 3, 3, VGA.C.YELLOW);
-    Draw.rect(ctx, x - 1, y + 2, 3, 3, VGA.C.LRED); // taillights
-    // Lightbar
-    if (hasLightbar) {
-        Draw.rect(ctx, x + 15, y - 10, 15, 3, VGA.C.WHITE);
-        Draw.rect(ctx, x + 15, y - 10, 5, 3, VGA.C.BLUE);
-        Draw.rect(ctx, x + 25, y - 10, 5, 3, VGA.C.LRED);
+    function drawCar(ctx, x, y, bodyColor, accentColor, hasLightbar) {
+        Draw.rect(ctx, x, y, 50, 16, bodyColor);
+        Draw.rect(ctx, x + 10, y - 8, 25, 10, bodyColor);
+        Draw.rect(ctx, x + 11, y - 7, 10, 8, C.WINDOW_CYAN);
+        Draw.rect(ctx, x + 24, y - 7, 10, 8, C.WINDOW_CYAN);
+        Draw.ellipse(ctx, x + 10, y + 16, 5, 3, C.BLACK);
+        Draw.ellipse(ctx, x + 40, y + 16, 5, 3, C.BLACK);
+        Draw.rect(ctx, x, y + 6, 50, 2, accentColor);
+        Draw.rect(ctx, x + 48, y + 2, 3, 3, C.YELLOW);
+        Draw.rect(ctx, x - 1, y + 2, 3, 3, C.LRED);
+        if (hasLightbar) {
+            Draw.rect(ctx, x + 15, y - 10, 15, 3, C.WHITE);
+            Draw.rect(ctx, x + 15, y - 10, 5, 3, C.BLUE);
+            Draw.rect(ctx, x + 25, y - 10, 5, 3, C.LRED);
+        }
     }
 }
