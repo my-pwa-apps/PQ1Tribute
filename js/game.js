@@ -13,7 +13,7 @@
         const engine = new GameEngine();
 
         // ── Set max score ──
-        engine.state.maxScore = 225;
+        engine.state.maxScore = 201;
 
         // ── Register all rooms ──
         registerAllRooms(engine);

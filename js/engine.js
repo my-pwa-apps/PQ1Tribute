@@ -183,8 +183,13 @@ const VGA = (() => {
 
 class SeededRandom {
     constructor(seed) {
-        this.seed = seed | 0;
-        if (this.seed === 0) this.seed = 12345;
+        this._initialSeed = seed | 0;
+        if (this._initialSeed === 0) this._initialSeed = 12345;
+        this.seed = this._initialSeed;
+    }
+    reset() {
+        this.seed = this._initialSeed;
+        return this;
     }
     next() {
         this.seed = (this.seed * 1103515245 + 12345) & 0x7fffffff;

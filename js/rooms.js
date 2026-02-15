@@ -30,6 +30,20 @@ function registerAllRooms(engine) {
     const G = engine; // shorthand
     const C = VGA.C;  // color shortcuts
 
+    // Cached room RNG instances — reset each frame instead of allocating new objects
+    const _rng = {
+        lockerRoom: new SeededRandom(42),
+        hallway: new SeededRandom(100),
+        briefingRoom: new SeededRandom(200),
+        captainOffice: new SeededRandom(301),
+        downtownStreet: new SeededRandom(600),
+        diner: new SeededRandom(700),
+        crimeScene: new SeededRandom(800),
+        park: new SeededRandom(900),
+        warehouseExterior: new SeededRandom(1000),
+        warehouseInterior: new SeededRandom(1100),
+    };
+
     // ════════════════════════════════════════════════════════
     //  ROOM 1: LOCKER ROOM
     // ════════════════════════════════════════════════════════
@@ -69,7 +83,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(42);
+            const rng = _rng.lockerRoom.reset();
 
             // ── AGI-style pseudo-3D locker room ──
             // Viewed from the doorway — back wall with lockers, side walls converging
@@ -372,7 +386,7 @@ function registerAllRooms(engine) {
                 return true;
             }
             // Wear/change uniform via parser
-            if (p.said(11, 56) || p.said(3, 56)) { // wear/change uniform, use uniform
+            if (p.said(11, 56)) { // wear/change uniform
                 if (!g.getFlag('lockerOpen')) {
                     g.showMessage("You need to open your locker first.");
                 } else if (g.getFlag('wearingUniform')) {
@@ -458,17 +472,17 @@ function registerAllRooms(engine) {
 
         exits: [
             // North: Briefing room (through the back wall door)
-            { x1: 120, y1: 88, x2: 200, y2: 95, target: 'briefingRoom', enterX: 160, enterY: 175, enterDir: 3 },
+            { x1: 120, y1: 88, x2: 200, y2: 108, target: 'briefingRoom', enterX: 160, enterY: 175, enterDir: 3 },
             // South: Locker room
             { x1: 140, y1: 185, x2: 180, y2: 195, target: 'lockerRoom', enterX: 160, enterY: 140, enterDir: 0 },
             // West: Parking lot (left wall exit)
-            { x1: 0, y1: 40, x2: 15, y2: 90, target: 'parkingLot', enterX: 290, enterY: 150, enterDir: 1 },
+            { x1: 0, y1: 40, x2: 20, y2: 108, target: 'parkingLot', enterX: 290, enterY: 150, enterDir: 1 },
             // East: Captain's office (right wall door)
-            { x1: 260, y1: 25, x2: 295, y2: 90, target: 'captainOffice', enterX: 40, enterY: 150, enterDir: 2 },
+            { x1: 260, y1: 25, x2: 305, y2: 108, target: 'captainOffice', enterX: 40, enterY: 150, enterDir: 2 },
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(100);
+            const rng = _rng.hallway.reset();
 
             // ── AGI-style pseudo-3D hallway ──
             // Vanishing point at center of back wall
@@ -667,6 +681,30 @@ function registerAllRooms(engine) {
         },
 
         onInteract(g, verb, id) {
+            if (id === 'bulletinBoard') {
+                if (verb === 'look') {
+                    g.showDialog('', 'The bulletin board is cluttered with notices:\n\n' +
+                        '• "Annual PD Softball Game — Sat 3PM"\n' +
+                        '• WANTED: "Big Eddie" Fontaine — armed robbery\n' +
+                        '• "Officer Martinez — Employee of the Month"\n' +
+                        '• A faded memo about parking lot rules.');
+                    return true;
+                }
+                if (verb === 'use' || verb === 'get') {
+                    g.showMessage("Better leave the notices where they are.");
+                    return true;
+                }
+            }
+            if (id === 'waterCooler') {
+                if (verb === 'use' || verb === 'get') {
+                    g.showMessage("You take a quick drink. Refreshing, but you've got work to do.");
+                    return true;
+                }
+                if (verb === 'look') {
+                    g.showMessage("The break area water cooler. Someone left a half-eaten donut beside it.");
+                    return true;
+                }
+            }
             if (id === 'coffeeMug' && (verb === 'get' || verb === 'use')) {
                 if (!g.getFlag('drankCoffee')) {
                     g.setFlag('drankCoffee', true);
@@ -746,7 +784,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(200);
+            const rng = _rng.briefingRoom.reset();
 
             // ── AGI-style pseudo-3D briefing room ──
             const vpX = 160, vpY = 38;
@@ -993,7 +1031,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(301);
+            const rng = _rng.captainOffice.reset();
 
             // ── AGI-style pseudo-3D captain's office ──
             // Smaller, more intimate room — VP slightly left (door is on left)
@@ -1166,8 +1204,19 @@ function registerAllRooms(engine) {
         },
 
         onEnter(g) {
+            // Auto-detect evidence gathered from multiple rooms
+            if (g.getFlag('gotFingerprints') && g.getFlag('gotNote') && g.getFlag('talkedWitness') && !g.getFlag('hasEvidence')) {
+                g.setFlag('hasEvidence', true);
+            }
             if (g.getFlag('hasEvidence') && !g.getFlag('gotWarrant')) {
                 setTimeout(() => g.showMessage("You have enough evidence. Check the file cabinet for warrant forms."), 500);
+            }
+            if (g.getFlag('gameWon')) {
+                setTimeout(() => g.showDialog('Captain Torres',
+                    '"Outstanding work, Detective Mercer. Lily Chen is safe, and Vasquez is behind bars. ' +
+                    'The Chen family sends their deepest thanks."\n\n' +
+                    `Final Score: ${g.state.score} of ${g.state.maxScore}\n\n` +
+                    'You are a credit to the Oakdale Police Department.'), 500);
             }
         }
     });
@@ -1267,9 +1316,10 @@ function registerAllRooms(engine) {
                     return true;
                 }
                 if (verb === 'look') {
-                    g.showMessage("Your unmarked sedan. Needs a wash, but it runs well.");
                     if (!g.getFlag('foundMap')) {
-                        g.showMessage("You notice a city map tucked under the visor.");
+                        g.showMessage("Your unmarked sedan. Needs a wash, but it runs well. You notice a city map tucked under the visor.");
+                    } else {
+                        g.showMessage("Your unmarked sedan. Needs a wash, but it runs well.");
                     }
                     return true;
                 }
@@ -1357,7 +1407,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(600);
+            const rng = _rng.downtownStreet.reset();
 
             // Sky
             Draw.gradient(ctx, 0, 0, 320, 40, C.SKY_BLUE, C.SKY_LIGHT);
@@ -1510,7 +1560,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(700);
+            const rng = _rng.diner.reset();
 
             // ── AGI-style pseudo-3D diner interior ──
             // Counter/bar recedes along left wall, booths along right wall
@@ -1754,6 +1804,10 @@ function registerAllRooms(engine) {
                                 'Sandra\'s statement: Dark van with anchor logo. Two men, one scarred. Went west toward Harbor Road.')) {
                             }
                             g.setFlag('knowsWarehouse', true);
+                            // Check if all evidence gathered — prevent soft-lock
+                            if (g.getFlag('gotFingerprints') && g.getFlag('gotNote') && !g.getFlag('hasEvidence')) {
+                                g.setFlag('hasEvidence', true);
+                            }
                             g.showMessage("You got Sandra's statement. She mentioned Harbor Road — the warehouse district. That's west of downtown.");
                         });
                 } else {
@@ -1781,12 +1835,16 @@ function registerAllRooms(engine) {
         },
 
         onParser(g, p) {
-            if (p.said(6, 124) || p.said(6, 121)) { // talk bartender/woman (Rosie)
+            if (p.said(6, 124)) { // talk bartender/rosie
                 this.onInteract(g, 'talk', 'rosie');
                 return true;
             }
-            if (p.said(6, 80) || p.said(6, 120)) { // talk witness/man
+            if (p.said(6, 80)) { // talk sandra/witness
                 this.onInteract(g, 'talk', 'witness');
+                return true;
+            }
+            if (p.said(6, 121) || p.said(6, 120)) { // talk woman/man — disambiguate
+                g.showMessage("There are two people here. Try 'talk bartender' (Rosie) or 'talk witness' (Sandra).");
                 return true;
             }
             if (p.said(8, 52) || p.said(1, 52)) { // show badge
@@ -1844,7 +1902,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(800);
+            const rng = _rng.crimeScene.reset();
 
             // Floor — hardwood
             for (let ty = 95; ty < 200; ty += 3) {
@@ -2071,7 +2129,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(900);
+            const rng = _rng.park.reset();
 
             // Sky
             Draw.gradient(ctx, 0, 0, 320, 40, C.SKY_BLUE, C.SKY_LIGHT);
@@ -2215,6 +2273,23 @@ function registerAllRooms(engine) {
                 }
             }
 
+            if (id === 'bench') {
+                if (verb === 'use' || verb === 'look') {
+                    g.showMessage("A weathered park bench overlooking the river. Not the time for a rest, detective.");
+                    return true;
+                }
+            }
+            if (id === 'jogger') {
+                if (verb === 'talk') {
+                    g.showMessage("The jogger pulls out an earbud. \"Sorry, didn't see anything. I just run here in the mornings.\" She jogs away.");
+                    return true;
+                }
+                if (verb === 'look') {
+                    g.showMessage("A jogger running along the path, headphones in. She doesn't seem to be a witness.");
+                    return true;
+                }
+            }
+
             return false;
         },
 
@@ -2226,6 +2301,8 @@ function registerAllRooms(engine) {
             if (p.said(1, 120) || p.said(1, 79)) { // look man/suspect
                 if (!g.getFlag('suspectFled')) {
                     this.onInteract(g, 'look', 'suspiciousMan');
+                } else {
+                    g.showMessage("He's gone. He fled toward Harbor Road — the warehouse district.");
                 }
                 return true;
             }
@@ -2300,7 +2377,7 @@ function registerAllRooms(engine) {
         ],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(1000);
+            const rng = _rng.warehouseExterior.reset();
 
             // Dusk sky
             Draw.gradient(ctx, 0, 0, 320, 25, VGA.nearest(60, 40, 100), VGA.nearest(140, 100, 60));
@@ -2487,7 +2564,7 @@ function registerAllRooms(engine) {
         exits: [],
 
         draw(ctx, state, frame) {
-            const rng = new SeededRandom(1100);
+            const rng = _rng.warehouseInterior.reset();
 
             // Dark interior
             Draw.rect(ctx, 0, 0, 320, 200, VGA.nearest(25, 25, 30));
@@ -2643,14 +2720,8 @@ function registerAllRooms(engine) {
         },
 
         onInteract(g, verb, id) {
-            if (!g.getFlag('warehouseEntry')) {
-                // First interaction triggers the confrontation
-                g.setFlag('warehouseEntry', true);
-                g.showDialog('Detective Mercer',
-                    '*You burst through the door, weapon drawn.*\n\n' +
-                    '"OAKDALE PD! NOBODY MOVE!"\n\n' +
-                    '*SWAT breaches from the side entrance simultaneously. The armed thug drops his weapon immediately. ' +
-                    'The scarfaced man hesitates...*');
+            if (!g.getFlag('enteredWarehouse')) {
+                // First interaction triggers the confrontation — skip, onEnter handles it
                 return true;
             }
 
@@ -2732,11 +2803,8 @@ function registerAllRooms(engine) {
         },
 
         onParser(g, p) {
-            if (!g.getFlag('warehouseEntry')) {
-                g.setFlag('warehouseEntry', true);
-                g.showDialog('Detective Mercer',
-                    '"OAKDALE PD! NOBODY MOVE!"\n\n' +
-                    'SWAT breaches from the side entrance. One thug surrenders immediately.');
+            if (!g.getFlag('enteredWarehouse')) {
+                // onEnter already handles the breach scene — block parser until it's done
                 return true;
             }
             if ((p.said(6, 130) || p.said(6, 79) || p.said(14, 130)) && !g.getFlag('thugsDown')) { // talk/arrest criminal
