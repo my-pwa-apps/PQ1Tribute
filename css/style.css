@@ -1,0 +1,296 @@
+/* ── Badge of Honor: Streets of Oakdale — VGA-style CSS ── */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #0a0a12;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    color: #c0c0c0;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    /* CRT scanline effect via box-shadow */
+    filter: contrast(1.05) brightness(1.02);
+}
+
+#header-bar {
+    width: 640px;
+    height: 28px;
+    background: #1a1a3a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 13px;
+    color: #f0f080;
+    border-bottom: 2px solid #444488;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+}
+
+#game-canvas {
+    width: 640px;
+    height: 400px;
+    display: block;
+    cursor: crosshair;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border-left: 2px solid #222244;
+    border-right: 2px solid #222244;
+    background: #000;
+}
+
+#verb-bar {
+    width: 640px;
+    height: 32px;
+    background: #1a1a2e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 8px;
+    border-top: 2px solid #444488;
+}
+
+.verb-btn {
+    background: #2a2a4a;
+    color: #a0a0c0;
+    border: 1px solid #555588;
+    padding: 3px 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.verb-btn:hover {
+    background: #3a3a6a;
+    color: #ffffff;
+}
+
+.verb-btn.active {
+    background: #4a4a8a;
+    color: #ffffff;
+    border-color: #8888cc;
+    font-weight: bold;
+}
+
+#text-area {
+    width: 640px;
+    min-height: 48px;
+    max-height: 96px;
+    background: #0e0e1e;
+    border-top: 2px solid #444488;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: #c0c8d0;
+    overflow-y: auto;
+    line-height: 1.4;
+}
+
+#message-display {
+    min-height: 18px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+#parser-input-container {
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+}
+
+#parser-input-container .prompt {
+    color: #80ff80;
+    margin-right: 6px;
+    font-weight: bold;
+}
+
+#parser-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e0ffe0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    flex: 1;
+    caret-color: #80ff80;
+}
+
+/* Inventory overlay */
+.inventory-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.inventory-panel {
+    background: #1a1a3a;
+    border: 3px solid #6666aa;
+    padding: 16px;
+    min-width: 360px;
+    max-width: 500px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.inventory-title {
+    color: #f0f080;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #444488;
+    padding-bottom: 8px;
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.inv-item {
+    background: #2a2a4a;
+    border: 1px solid #555588;
+    padding: 8px 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 11px;
+    color: #c0c0e0;
+    transition: background 0.15s;
+}
+
+.inv-item:hover {
+    background: #4a4a8a;
+    color: #ffffff;
+}
+
+.inv-item.selected {
+    border-color: #ffff55;
+    background: #3a3a6a;
+    color: #ffff80;
+}
+
+.inv-item-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+/* Dialog box */
+.dialog-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+}
+
+.dialog-box {
+    background: #1a1a3a;
+    border: 3px solid #8888cc;
+    padding: 20px 24px;
+    max-width: 460px;
+    color: #e0e0f0;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.dialog-box .speaker {
+    color: #f0f080;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.dialog-box .dialog-text {
+    margin-bottom: 12px;
+}
+
+.dialog-box .dialog-continue {
+    color: #80c0ff;
+    font-size: 12px;
+    animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Death screen */
+.death-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(80,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 300;
+    color: #ff8080;
+}
+
+.death-overlay h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+}
+
+.death-overlay p {
+    font-size: 14px;
+    max-width: 400px;
+    text-align: center;
+    margin-bottom: 16px;
+    color: #ffaaaa;
+}
+
+.death-overlay button {
+    background: #4a1a1a;
+    color: #ff8080;
+    border: 2px solid #aa4444;
+    padding: 8px 24px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.death-overlay button:hover {
+    background: #6a2a2a;
+    color: #ffffff;
+}
+
+/* Responsive scaling */
+@media (max-width: 700px) {
+    #game-container {
+        transform: scale(0.85);
+        transform-origin: top center;
+    }
+}
+
+@media (max-width: 520px) {
+    #game-container {
+        transform: scale(0.5);
+        transform-origin: top center;
+    }
+}

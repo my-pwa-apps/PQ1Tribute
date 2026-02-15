@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badge of Honor: Streets of Oakdale</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="header-bar">
+            <span id="score-display">Score: 0 of 225</span>
+            <span id="room-name">Police Station — Locker Room</span>
+        </div>
+        <canvas id="game-canvas" width="640" height="400"></canvas>
+        <div id="verb-bar">
+            <button class="verb-btn active" data-verb="walk">Walk</button>
+            <button class="verb-btn" data-verb="look">Look</button>
+            <button class="verb-btn" data-verb="get">Get</button>
+            <button class="verb-btn" data-verb="use">Use</button>
+            <button class="verb-btn" data-verb="talk">Talk</button>
+            <button class="verb-btn" data-verb="open">Open</button>
+            <button class="verb-btn" data-verb="close">Close</button>
+            <button class="verb-btn" data-verb="inventory">Inv</button>
+        </div>
+        <div id="text-area">
+            <div id="message-display"></div>
+            <div id="parser-input-container" style="display:none;">
+                <span class="prompt">&gt;</span>
+                <input type="text" id="parser-input" autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+    </div>
+
+    <script src="js/audio.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/rooms.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
