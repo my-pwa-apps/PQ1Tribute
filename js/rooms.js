@@ -96,18 +96,61 @@ function registerAllRooms(engine) {
                 // Show player locker open with uniform inside
                 if (isPlayer && state.flags.lockerOpen) {
                     // Open locker interior
-                    Draw.rect(ctx, lx + 2, 27, 28, 74, C.BLACK);
-                    // Uniform hanging if not yet worn
-                    if (!state.flags.wearingUniform) {
-                        // Hanger bar
-                        Draw.rect(ctx, lx + 6, 30, 18, 1, C.METAL_GRAY);
-                        // Uniform shirt on hanger
-                        Draw.rect(ctx, lx + 8, 32, 14, 18, C.UNIFORM_BLUE);
-                        // Uniform pants folded below
-                        Draw.rect(ctx, lx + 8, 54, 14, 12, C.UNIFORM_DARK);
-                    }
+                    Draw.rect(ctx, lx + 2, 27, 28, 74, VGA.nearest(20, 20, 25));
                     // Shelf at top
                     Draw.rect(ctx, lx + 2, 27, 28, 2, C.METAL_GRAY);
+
+                    // Uniform hanging if not yet worn
+                    if (!state.flags.wearingUniform) {
+                        // Hanger (wire shape)
+                        Draw.rect(ctx, lx + 12, 30, 6, 1, C.METAL_GRAY); // bar
+                        Draw.pixel(ctx, lx + 15, 29, C.METAL_GRAY);      // hook top
+                        Draw.pixel(ctx, lx + 15, 28, C.METAL_GRAY);
+                        Draw.rect(ctx, lx + 10, 31, 1, 1, C.METAL_GRAY); // shoulder L
+                        Draw.rect(ctx, lx + 19, 31, 1, 1, C.METAL_GRAY); // shoulder R
+
+                        // Uniform shirt on hanger (detailed)
+                        Draw.rect(ctx, lx + 8, 32, 14, 18, C.UNIFORM_BLUE);
+                        // Collar
+                        Draw.rect(ctx, lx + 10, 32, 10, 2, C.UNIFORM_DARK);
+                        Draw.pixel(ctx, lx + 15, 32, C.WHITE); // undershirt at collar
+                        // Shoulder patches
+                        Draw.pixel(ctx, lx + 8, 34, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 21, 34, C.BADGE_GOLD);
+                        // Button line
+                        for (let b = 0; b < 4; b++) {
+                            Draw.pixel(ctx, lx + 15, 35 + b * 3, C.UNIFORM_DARK);
+                        }
+                        // Badge pinned on
+                        Draw.pixel(ctx, lx + 11, 36, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 10, 37, C.BADGE_GOLD);
+                        Draw.pixel(ctx, lx + 12, 37, C.BADGE_GOLD);
+                        // Pocket flaps
+                        Draw.rect(ctx, lx + 10, 40, 4, 1, C.UNIFORM_DARK);
+                        Draw.rect(ctx, lx + 16, 40, 4, 1, C.UNIFORM_DARK);
+                        // Name tag
+                        Draw.rect(ctx, lx + 16, 36, 4, 2, C.WHITE);
+
+                        // Uniform pants folded on shelf below
+                        Draw.rect(ctx, lx + 8, 54, 14, 8, C.UNIFORM_DARK);
+                        Draw.rect(ctx, lx + 15, 54, 1, 8, VGA.nearest(15, 18, 50)); // crease
+
+                        // Duty belt coiled on shelf
+                        Draw.ellipse(ctx, lx + 15, 66, 4, 3, C.BLACK);
+                        Draw.pixel(ctx, lx + 15, 66, C.METAL_GRAY); // buckle glint
+
+                        // Police cap on top shelf
+                        Draw.rect(ctx, lx + 18, 29, 8, 4, C.UNIFORM_DARK);
+                        Draw.rect(ctx, lx + 17, 33, 10, 1, C.UNIFORM_BLUE);
+                        Draw.pixel(ctx, lx + 22, 30, C.BADGE_GOLD); // cap badge
+                    } else {
+                        // Empty locker with some personal items
+                        Draw.rect(ctx, lx + 8, 68, 12, 4, C.DGRAY); // civilian clothes folded
+                        Draw.rect(ctx, lx + 18, 44, 6, 8, VGA.nearest(100, 60, 30)); // coffee thermos
+                    }
+
+                    // Hook on inside of door
+                    Draw.pixel(ctx, lx + 27, 40, C.METAL_GRAY);
                 } else {
                     // Vent slits (closed locker)
                     for (let s = 0; s < 4; s++) {
@@ -146,10 +189,47 @@ function registerAllRooms(engine) {
             // Mirror
             Draw.rect(ctx, 218, 42, 24, 34, C.DGRAY);
             Draw.rect(ctx, 220, 44, 20, 30, C.WINDOW_CYAN);
+            // Mirror reflection highlight
+            Draw.line(ctx, 221, 45, 221, 65, C.WHITE);
+
+            // Wall clock
+            Draw.ellipse(ctx, 205, 25, 8, 8, C.WHITE);
+            Draw.ellipse(ctx, 205, 25, 8, 8, C.DGRAY, false);
+            // Clock hands
+            Draw.line(ctx, 205, 25, 205, 20, C.BLACK); // minute
+            Draw.line(ctx, 205, 25, 209, 25, C.BLACK); // hour
+            Draw.pixel(ctx, 205, 25, C.RED); // center
+
+            // Ceiling vent
+            Draw.rect(ctx, 160, 3, 20, 8, C.METAL_GRAY);
+            for (let v = 0; v < 3; v++) {
+                Draw.rect(ctx, 162, 4 + v * 3, 16, 1, C.DGRAY);
+            }
 
             // Fluorescent lights
             Draw.rect(ctx, 60, 5, 80, 3, C.WHITE);
             Draw.rect(ctx, 200, 5, 60, 3, C.WHITE);
+            // Light glow
+            Draw.dither(ctx, 60, 8, 80, 2, C.WHITE, C.WALL_BEIGE);
+            Draw.dither(ctx, 200, 8, 60, 2, C.WHITE, C.WALL_BEIGE);
+
+            // Shower water drip (animated)
+            if (frame % 45 < 15) {
+                const dripY = 35 + (frame % 45);
+                Draw.pixel(ctx, 282, dripY, C.WINDOW_CYAN);
+            }
+            if (frame % 45 > 30) {
+                // Splash
+                Draw.pixel(ctx, 281, 100, C.WINDOW_CYAN);
+                Draw.pixel(ctx, 283, 99, C.WINDOW_CYAN);
+            }
+
+            // Wet spot on floor near shower
+            Draw.dither(ctx, 268, 108, 20, 3, C.WINDOW_CYAN, C.FLOOR_TILE);
+
+            // Towel draped on bench
+            Draw.rect(ctx, 140, 113, 12, 3, C.WHITE);
+            Draw.rect(ctx, 140, 116, 5, 6, C.WHITE); // hanging part
 
             // Exit door (bottom center)
             Draw.rect(ctx, 135, 90, 50, 15, C.DOOR_BROWN);
@@ -433,7 +513,20 @@ function registerAllRooms(engine) {
             // Overhead lights
             for (let lx = 40; lx < 300; lx += 80) {
                 Draw.rect(ctx, lx, 4, 60, 3, C.WHITE);
+                Draw.dither(ctx, lx, 7, 60, 2, C.WHITE, C.WALL_GREEN);
             }
+
+            // Floor shine / wax reflection
+            for (let i = 0; i < 8; i++) {
+                const sx = rng.int(20, 300);
+                const sy = rng.int(100, 190);
+                Draw.pixel(ctx, sx, sy, C.WHITE);
+            }
+
+            // Fire extinguisher on wall (left of bulletin board)
+            Draw.rect(ctx, 22, 60, 6, 14, C.RED);
+            Draw.rect(ctx, 23, 58, 4, 3, C.METAL_GRAY); // handle
+            Draw.pixel(ctx, 25, 74, C.BLACK); // hose nozzle
 
             // Officers walking in background
             if (frame % 300 < 150) {
@@ -546,6 +639,31 @@ function registerAllRooms(engine) {
             Draw.rect(ctx, 78, 17, 164, 26, C.WHITE);
             Draw.text(ctx, 'CHEN CASE', 100, 30, C.RED, 7);
             Draw.text(ctx, 'PRIORITY 1', 105, 38, C.RED, 5);
+            // Whiteboard markers in tray
+            Draw.rect(ctx, 78, 43, 30, 2, C.DGRAY); // tray
+            Draw.rect(ctx, 80, 41, 4, 3, C.RED); // red marker
+            Draw.rect(ctx, 86, 41, 4, 3, C.BLUE); // blue marker
+            Draw.rect(ctx, 92, 41, 4, 3, C.BLACK); // black marker
+
+            // American flag (left side)
+            Draw.rect(ctx, 30, 20, 2, 50, C.BADGE_GOLD); // pole
+            Draw.rect(ctx, 32, 20, 20, 12, C.RED);
+            Draw.rect(ctx, 32, 23, 20, 2, C.WHITE);
+            Draw.rect(ctx, 32, 27, 20, 2, C.WHITE);
+            Draw.rect(ctx, 32, 20, 8, 8, C.BLUE); // union
+            // Stars (dots)
+            for (let sy = 0; sy < 2; sy++) {
+                for (let sx = 0; sx < 3; sx++) {
+                    Draw.pixel(ctx, 34 + sx * 2, 21 + sy * 3, C.WHITE);
+                }
+            }
+
+            // Wall clock (right)
+            Draw.ellipse(ctx, 275, 28, 7, 7, C.WHITE);
+            Draw.ellipse(ctx, 275, 28, 7, 7, C.DGRAY, false);
+            Draw.line(ctx, 275, 28, 275, 23, C.BLACK);
+            Draw.line(ctx, 275, 28, 279, 28, C.BLACK);
+            Draw.pixel(ctx, 275, 28, C.RED);
 
             // Podium
             Draw.rect(ctx, 140, 50, 40, 30, C.DESK_BROWN);
@@ -1158,10 +1276,29 @@ function registerAllRooms(engine) {
                     Draw.rect(ctx, tx, ty, 8, 8, check ? C.WHITE : C.BLACK);
                 }
             }
+            // Floor shine reflections
+            for (let i = 0; i < 6; i++) {
+                Draw.pixel(ctx, rng.int(10, 310), rng.int(100, 195), C.LGRAY);
+            }
 
             // Walls — warm colors
             Draw.rect(ctx, 0, 0, 320, 95, VGA.nearest(200, 170, 130));
             Draw.rect(ctx, 0, 88, 320, 5, C.BROWN);
+            // Wainscoting
+            Draw.rect(ctx, 0, 70, 320, 18, VGA.nearest(170, 140, 100));
+            Draw.line(ctx, 0, 70, 320, 70, VGA.nearest(140, 110, 75));
+
+            // Ceiling fan (animated)
+            const fanCx = 160;
+            const fanAngle = frame * 0.2;
+            Draw.pixel(ctx, fanCx, 5, C.DGRAY); // mount
+            Draw.rect(ctx, fanCx - 1, 5, 2, 3, C.DGRAY); // rod
+            for (let b = 0; b < 4; b++) {
+                const a = fanAngle + b * (Math.PI / 2);
+                const bx = fanCx + Math.cos(a) * 12;
+                const by = 10 + Math.sin(a) * 3; // foreshortened
+                Draw.line(ctx, fanCx, 8, Math.round(bx), Math.round(by), C.DESK_BROWN);
+            }
 
             // Counter (left side)
             Draw.rect(ctx, 5, 55, 130, 22, VGA.nearest(170, 70, 60)); // counter top
@@ -2128,6 +2265,44 @@ function registerAllRooms(engine) {
             // Oil barrels
             Draw.ellipse(ctx, 290, 60, 8, 10, C.DGRAY);
             Draw.ellipse(ctx, 306, 65, 8, 10, C.DGRAY);
+            // Barrel labels
+            Draw.rect(ctx, 286, 58, 8, 2, C.YELLOW);
+            Draw.rect(ctx, 302, 63, 8, 2, C.YELLOW);
+
+            // Dripping pipe (atmospheric)
+            Draw.rect(ctx, 50, 38, 80, 2, VGA.nearest(70, 65, 55)); // pipe
+            Draw.rect(ctx, 90, 38, 2, 6, VGA.nearest(70, 65, 55)); // pipe elbow
+            if (frame % 50 < 20) {
+                const dripY = 44 + (frame % 50) * 2;
+                if (dripY < 100) Draw.pixel(ctx, 91, dripY, C.WATER_LIGHT);
+            }
+            // Puddle under drip
+            Draw.ellipse(ctx, 91, 102, 5, 2, VGA.nearest(45, 45, 55));
+
+            // Exposed wiring on wall
+            Draw.line(ctx, 280, 10, 280, 38, C.YELLOW);
+            Draw.line(ctx, 280, 10, 310, 10, C.YELLOW);
+            Draw.pixel(ctx, 310, 10, C.RED); // exposed end
+
+            // Grime and stains on floor
+            for (let i = 0; i < 15; i++) {
+                Draw.pixel(ctx, rng.int(5, 315), rng.int(105, 195), VGA.nearest(50, 48, 45));
+            }
+
+            // Dust motes in light beam (animated)
+            for (let d = 0; d < 4; d++) {
+                const dx = lightX - 10 + ((frame * 0.5 + d * 17) % 30);
+                const dy = 60 + ((frame * 0.3 + d * 23) % 40);
+                if (dy > 55 && dy < 108) {
+                    Draw.pixel(ctx, dx, dy, VGA.nearest(120, 115, 80));
+                }
+            }
+
+            // Spider web in corner
+            Draw.line(ctx, 0, 0, 15, 15, C.LGRAY);
+            Draw.line(ctx, 15, 0, 0, 15, C.LGRAY);
+            Draw.line(ctx, 0, 7, 15, 7, C.LGRAY);
+            Draw.line(ctx, 7, 0, 7, 15, C.LGRAY);
 
             if (state.flags.thugsDown && !state.flags.lilyFreed) {
                 Draw.text(ctx, 'Free Lily!', 120, 95, C.LGREEN, 6);
@@ -2276,19 +2451,49 @@ function registerAllRooms(engine) {
     // HELPER: Draw a simple car
     // ══════════════════════════════════════════════
     function drawCar(ctx, x, y, bodyColor, accentColor, hasLightbar) {
+        // Body
         Draw.rect(ctx, x, y, 50, 16, bodyColor);
+        // Roof/cabin
         Draw.rect(ctx, x + 10, y - 8, 25, 10, bodyColor);
+        // Windshield & rear window
         Draw.rect(ctx, x + 11, y - 7, 10, 8, C.WINDOW_CYAN);
         Draw.rect(ctx, x + 24, y - 7, 10, 8, C.WINDOW_CYAN);
-        Draw.ellipse(ctx, x + 10, y + 16, 5, 3, C.BLACK);
-        Draw.ellipse(ctx, x + 40, y + 16, 5, 3, C.BLACK);
+        // Windshield glare
+        Draw.pixel(ctx, x + 12, y - 6, C.WHITE);
+        Draw.pixel(ctx, x + 13, y - 5, C.WHITE);
+        // Pillar between windows
+        Draw.rect(ctx, x + 22, y - 7, 1, 8, bodyColor);
+        // Door line
+        Draw.rect(ctx, x + 22, y, 1, 14, accentColor);
+        // Door handle
+        Draw.rect(ctx, x + 24, y + 5, 3, 1, C.METAL_GRAY);
+        Draw.rect(ctx, x + 15, y + 5, 3, 1, C.METAL_GRAY);
+        // Side trim / stripe
         Draw.rect(ctx, x, y + 6, 50, 2, accentColor);
+        // Bumpers
+        Draw.rect(ctx, x - 2, y + 12, 3, 3, C.METAL_GRAY);
+        Draw.rect(ctx, x + 49, y + 12, 3, 3, C.METAL_GRAY);
+        // Headlights
         Draw.rect(ctx, x + 48, y + 2, 3, 3, C.YELLOW);
+        Draw.pixel(ctx, x + 49, y + 3, C.WHITE); // glint
+        // Taillights
         Draw.rect(ctx, x - 1, y + 2, 3, 3, C.LRED);
+        // Side mirror
+        Draw.rect(ctx, x + 9, y - 1, 2, 2, bodyColor);
+        // Wheels with hubcaps
+        Draw.ellipse(ctx, x + 10, y + 16, 5, 3, VGA.nearest(20, 20, 20));
+        Draw.ellipse(ctx, x + 40, y + 16, 5, 3, VGA.nearest(20, 20, 20));
+        Draw.ellipse(ctx, x + 10, y + 16, 2, 1, C.METAL_GRAY); // hubcap
+        Draw.ellipse(ctx, x + 40, y + 16, 2, 1, C.METAL_GRAY); // hubcap
+        // Wheel well shadow
+        Draw.rect(ctx, x + 5, y + 14, 10, 1, VGA.nearest(20, 20, 20));
+        Draw.rect(ctx, x + 35, y + 14, 10, 1, VGA.nearest(20, 20, 20));
         if (hasLightbar) {
             Draw.rect(ctx, x + 15, y - 10, 15, 3, C.WHITE);
             Draw.rect(ctx, x + 15, y - 10, 5, 3, C.BLUE);
             Draw.rect(ctx, x + 25, y - 10, 5, 3, C.LRED);
+            // Light bar chrome edge
+            Draw.rect(ctx, x + 15, y - 11, 15, 1, C.METAL_GRAY);
         }
     }
 }

@@ -81,16 +81,33 @@
 
 
     function drawTitleBadge(ctx, cx, cy) {
-        // Draw a procedural police badge (star shape)
+        // Draw a procedural police badge (star shape with detailed rim)
         const gold = VGA.toCSS(VGA.C.BADGE_GOLD);
         const darkGold = VGA.toCSS(VGA.nearest(160, 130, 40));
+        const lightGold = VGA.toCSS(VGA.nearest(230, 200, 80));
         const blueCenter = VGA.toCSS(VGA.C.UNIFORM_BLUE);
+        const darkBlue = VGA.toCSS(VGA.C.UNIFORM_DARK);
 
         // Star points
         const points = 7;
-        const outerR = 70;
-        const innerR = 35;
+        const outerR = 72;
+        const innerR = 36;
 
+        // Outer glow / shadow
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const angle = (i * Math.PI / points) - Math.PI / 2;
+            const r = (i % 2 === 0) ? outerR + 4 : innerR + 2;
+            const px = cx + r * Math.cos(angle);
+            const py = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = VGA.toCSS(VGA.nearest(100, 80, 20));
+        ctx.fill();
+
+        // Main star body
         ctx.beginPath();
         for (let i = 0; i < points * 2; i++) {
             const angle = (i * Math.PI / points) - Math.PI / 2;
@@ -107,17 +124,87 @@
         ctx.lineWidth = 2;
         ctx.stroke();
 
+        // Inner highlight ring on star
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const angle = (i * Math.PI / points) - Math.PI / 2;
+            const r = (i % 2 === 0) ? outerR - 6 : innerR + 4;
+            const px = cx + r * Math.cos(angle);
+            const py = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = lightGold;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Decorative rim circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+        ctx.strokeStyle = darkGold;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Outer blue circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, 29, 0, Math.PI * 2);
+        ctx.fillStyle = darkBlue;
+        ctx.fill();
+        ctx.strokeStyle = gold;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
         // Center circle
         ctx.beginPath();
         ctx.arc(cx, cy, 25, 0, Math.PI * 2);
         ctx.fillStyle = blueCenter;
         ctx.fill();
         ctx.strokeStyle = gold;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Badge number
-        drawTitleText(ctx, '1247', cx, cy + 5, VGA.C.BADGE_GOLD, 2.5);
+        // "DETECTIVE" arc text at top of circle
+        ctx.save();
+        ctx.font = 'bold 11px monospace';
+        ctx.fillStyle = gold;
+        ctx.textAlign = 'center';
+        const arcText = 'DETECTIVE';
+        const arcR = 20;
+        const startAngle = -Math.PI / 2 - 0.65;
+        for (let i = 0; i < arcText.length; i++) {
+            const a = startAngle + i * 0.16;
+            const tx = cx + arcR * Math.cos(a);
+            const ty = cy + arcR * Math.sin(a);
+            ctx.save();
+            ctx.translate(tx, ty);
+            ctx.rotate(a + Math.PI / 2);
+            ctx.fillText(arcText[i], 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+
+        // Badge number (centered, larger)
+        drawTitleText(ctx, '1247', cx, cy + 8, VGA.C.BADGE_GOLD, 2.5);
+
+        // "OAKDALE PD" arc text at bottom of circle
+        ctx.save();
+        ctx.font = 'bold 9px monospace';
+        ctx.fillStyle = gold;
+        ctx.textAlign = 'center';
+        const botText = 'OAKDALE PD';
+        const botStartAngle = Math.PI / 2 + 0.55;
+        for (let i = 0; i < botText.length; i++) {
+            const a = botStartAngle - i * 0.12;
+            const tx = cx + arcR * Math.cos(a);
+            const ty = cy + arcR * Math.sin(a);
+            ctx.save();
+            ctx.translate(tx, ty);
+            ctx.rotate(a - Math.PI / 2);
+            ctx.fillText(botText[i], 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
     }
 
 
